@@ -1,16 +1,12 @@
 import asyncio
-
 import logging
 import multiprocessing
 import random
 import time
-
-from telegram import Bot
-
 import requests
-
 import sys
 
+from telegram import Bot
 from get_info import get_date, get_seat_info, get_segment, get_build_id, get_auth_token, encrypt
 
 # 配置日志
@@ -20,10 +16,16 @@ logger = logging.getLogger(__name__)
 URL_GET_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/confirm"
 
 # 在代码的顶部定义全局变量
-global_exclude_ids = set()
+interrupted = False
+global_exclude_ids = {7443, 7448, 7453, 7458, 7463, 7468, 7473, 7478, 7483, 7488, 7493, 7498, 7503, 7508, 7513, 7518,
+                      7572, 7575, 7578, 7581, 7584, 7587, 7590, 7785, 7788, 7791, 7794, 7797, 7800, 7803, 7806, 7291,
+                      7296, 7301, 7306, 7311, 7316, 7321, 7326, 7331, 7336, 7341, 7346, 7351, 7356, 7361, 7366, 7369,
+                      7372, 7375, 7378, 7381, 7384, 7387, 7390, 7417, 7420, 7423, 7426, 7429, 7432, 7435, 7438, 7115,
+                      7120, 7125, 7130, 7135, 7140, 7145, 7150, 7155, 7160, 7165, 7170, 7175, 7180, 7185, 7190, 7241,
+                      7244, 7247, 7250, 7253, 7256, 7259, 7262, 7761, 7764, 7767, 7770, 7773, 7776, 7779, 7782}
 seat_result = {}
-CHANNEL_ID = "Your Channel id"
-TELEGRAM_BOT_TOKEN = 'Your telegram token'
+CHANNEL_ID = "-4163947299"
+TELEGRAM_BOT_TOKEN = '6441897020:AAFL9QlApvr64CB440qjehy7zpv5Df3qHqk'
 TELEGRAM_URL = "https://telegram.sakurasep.workers.dev/bot"
 message = ""
 MAX_RETRIES = 3  # 最大重试次数
@@ -67,50 +69,44 @@ async def send_seat_result_to_channel():
 
 # 状态检测函数
 def check_reservation_status(seat_id, m):
-    global seat_result
+    global seat_result, interrupted
     # 状态信息检测
     if 'msg' in seat_result:
         status = seat_result['msg']
-    else:
-        return False
-
-    logger.info(status)
-
-    if status == "当前时段存在预约，不可重复预约!":
-        logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
-        return True
-    elif status == "预约成功":
-    # elif "1" == "1":
-        logger.info("成功预约")
-        add_message(f"预约状态为:{status}")
-        asyncio.run(send_seat_result_to_channel())
-        return True
-    elif status == "开放预约时间19:20":
-        logger.info("未到预约时间,程序将会 10s 查询一次")
-        time.sleep(10)
-        return False
-    elif status == "您尚未登录":
-        logger.info("没有登录，请检查是否正确获取了 token")
-        return True
-    elif status == "该空间当前状态不可预约":
-        logger.info("此位置已被预约")
-        if m == "3":
-            logger.info(f"{seat_id} 已被预约，加入排除名单")
-            global_exclude_ids.add(seat_id)
-            time.sleep(1)
-            # logger.info(global_exclude_ids)
-            return False
-        elif m == "2":
-            seat_id = input("请重新输入想要预约的相同自习室的 id:\n")
-            return seat_id
+        logger.info(status)
+        if status == "当前时段存在预约，不可重复预约!":
+            logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+            interrupted = True
+        elif status == "预约成功":
+            # elif "1" == "1":
+            logger.info("成功预约")
+            add_message(f"预约状态为:{status}")
+            asyncio.run(send_seat_result_to_channel())
+            interrupted = True
+        elif status == "开放预约时间19:20":
+            logger.info("未到预约时间,程序将会 10s 查询一次")
+            time.sleep(10)
+        elif status == "您尚未登录":
+            logger.info("没有登录，请检查是否正确获取了 token")
+            interrupted = True
+        elif status == "该空间当前状态不可预约":
+            logger.info("此位置已被预约")
+            if m == "3":
+                logger.info(f"{seat_id} 已被预约，加入排除名单")
+                global_exclude_ids.add(seat_id)
+                time.sleep(1)
+                # logger.info(global_exclude_ids)
+            elif m == "2":
+                seat_id = input("请重新输入想要预约的相同自习室的 id:\n")
+                return seat_id
+            else:
+                logger.info(f"{seat_id} 已被预约，重新刷新状态")
+                time.sleep(1)
         else:
-            logger.info(f"{seat_id} 已被预约，重新刷新状态")
-            time.sleep(1)
-            return False
-
+            logger.info("未知状态，程序退出")
+            interrupted = True
     else:
-        logger.info("未知状态，程序退出")
-        return True
+        logger.error("没有获取到状态信息")
 
 
 # 预约函数
@@ -154,10 +150,8 @@ def post_to_get_seat(select_id, segment, auth):
     seat_result = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
 
 
-# 优选函数
 def prefer_get_select_id(build_id):
     try:
-        # 根据 build_id 选择相应的优选模式
         if build_id == 38:
             logger.info("你选择的是三层的优选模式")
             valid_ranges = list(range(7112, 7152)) + list(range(7192, 7216)) + list(range(7240, 7263))
@@ -171,7 +165,7 @@ def prefer_get_select_id(build_id):
             logger.error("不支持的优选位置")
             sys.exit()
 
-        # 过滤排除的座位 id
+        # 从所有有效座位中去除已经被排除的座位
         valid_seats = [seat_id for seat_id in valid_ranges if seat_id not in global_exclude_ids]
 
         # 随机选择一个座位 id
@@ -188,16 +182,17 @@ def prefer_get_select_id(build_id):
 # 模式1 && 3
 def get_and_select_seat_default(auth, build_id, segment, nowday, m):
     # 初始化
-    interrupted = False
     global message
     try:
         while not interrupted:
+            # 优选逻辑
             if m == "1":
                 # logger.info(build_id)
                 select_id = prefer_get_select_id(build_id)
                 logger.info(f"优选的座位是:{select_id}")
                 message = f"优选的座位是:{select_id}"
                 time.sleep(1)
+            # 默认逻辑
             else:
                 # logger.info(f"获取的 segment: {segment}")
                 data = get_seat_info(build_id, segment, nowday)
@@ -222,7 +217,7 @@ def get_and_select_seat_default(auth, build_id, segment, nowday, m):
             else:
                 post_to_get_seat(select_id, segment, auth)
                 # logger.info(seat_result)
-                interrupted = check_reservation_status(select_id, m)
+                check_reservation_status(select_id, m)
 
     except KeyboardInterrupt:
         logger.info(f"接收到中断信号，程序将退出。")
@@ -232,13 +227,12 @@ def get_and_select_seat_default(auth, build_id, segment, nowday, m):
 def get_and_select_seat_selected(auth, segment, seat_id):
     # 初始化
     global seat_result
-    interrupted = False
     try:
         while not interrupted:
             logger.info(f"你选定的座位为: {seat_id}")
             post_to_get_seat(seat_id, segment, auth)
             # logger.info(seat_result)
-            interrupted = check_reservation_status(seat_id, "2")
+            check_reservation_status(seat_id, "2")
 
     except KeyboardInterrupt:
         logger.info(f"接收到中断信号，程序将退出。")
@@ -263,6 +257,7 @@ def default_get_seat(m):
     try:
         # 输入基本信息
         classroom_names = input("请输入教室名（多个教室名以空格分隔）:\n").split()
+        # classroom_names = ["西校区图书馆-三层自习室", "西校区图书馆-四层自习室", "西校区图书馆-五层自习室"]
         process_number = int(input("请输入进程数: \n"))
         date = get_date()
 
@@ -307,6 +302,7 @@ if __name__ == "__main__":
     try:
         # 三种功能
         mode = input("请输入选座模式，1:优选模式 2:指定座位 3:默认随机\n")
+        # mode = "1"
         if mode == "3":
             default_get_seat(mode)
         if mode == "2":

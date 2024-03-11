@@ -160,6 +160,8 @@ def get_auth_token():
         # 从命令行中获取用户名和密码
         username = input("请输入用户名（学号）: \n")
         password = getpass.getpass('请输入密码: \n')
+        # username = ""
+        # password = ""
         name, token = get_bearer_token(username, password)
         logger.info(f"你好，{name}同学")
         new_token = "bearer" + str(token)
