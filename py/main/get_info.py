@@ -1,12 +1,11 @@
 import logging
 import time
-from datetime import timedelta, datetime
+from datetime import timedelta
 import sys
 import requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 from datetime import datetime
-import getpass
 from get_bearer_token import get_bearer_token
 import base64
 
@@ -44,7 +43,8 @@ URL_CLASSROOM_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/seat"
 def get_date():
     try:
         # 获取用户输入的日期信息
-        argument = input("请输入日期（'今天输入 0' 或 '明天输入 1'）: \n")
+        # argument = input("请输入日期（'今天输入 0' 或 '明天输入 1'）: \n")
+        argument = "1"
         # 判断预约的时间
         if argument == "0":
             nowday = datetime.now().date()
@@ -158,10 +158,10 @@ def get_auth_token():
     # return token
     try:
         # 从命令行中获取用户名和密码
-        username = input("请输入用户名（学号）: \n")
-        password = getpass.getpass('请输入密码: \n')
-        # username = ""
-        # password = ""
+        # username = input("请输入用户名（学号）: \n")
+        # password = getpass.getpass('请输入密码: \n')
+        username = ""
+        password = ""
         name, token = get_bearer_token(username, password)
         logger.info(f"你好，{name}同学")
         new_token = "bearer" + str(token)
