@@ -1,0 +1,187 @@
+import logging
+import time
+from datetime import timedelta, datetime
+import sys
+import requests
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("开始打印日志")
+
+# 创建教室名称到 ID 的映射字典
+classroom_id_mapping = {
+    "西校区图书馆-三层自习室": 38,
+    "西校区图书馆-四层自习室": 39,
+    "西校区图书馆-五层自习室": 40,
+    "西校区东辅楼-二层自习室": 41,
+    "西校区东辅楼-三层自习室": 42,
+    "东校区图书馆-三层电子阅览室": 21,
+    "东校区图书馆-三层自习室01": 22,
+    "东校区图书馆-三层自习室02": 23,
+    "东校区图书馆-四层中文现刊室": 24,
+    "综合楼-801自习室": 16,
+    "综合楼-803自习室": 17,
+    "综合楼-804自习室": 18,
+    "综合楼-805自习室": 19,
+    "综合楼-806自习室": 20,
+    "行政楼-四层东区自习室": 13,
+    "行政楼-四层中区自习室": 14,
+    "行政楼-四层西区自习室": 15,
+    "电视台楼-二层自习室": 12
+}
+
+# 常量定义
+URL_CLASSROOM_DETAIL_INFO = "http://libyy.qfnu.edu.cn/api/Seat/date"
+URL_CLASSROOM_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/seat"
+
+
+# 获取预约的日期
+def get_date():
+    try:
+        # 获取用户输入的日期信息
+        argument = input("请输入日期（'今天输入 0' 或 '明天输入 1'）: \n")
+        # 判断预约的时间
+        if argument == "0":
+            nowday = datetime.now().date()
+        elif argument == "1":
+            nowday = datetime.now().date() + timedelta(days=1)
+        else:
+            logger.error(f"未知的参数: {argument}")
+            sys.exit()
+        # 结果判断
+        if nowday:
+            # logger.info(f"获取的日期: {nowday}")
+            return nowday.strftime("%Y-%m-%d")  # 将日期对象转换为字符串
+        else:
+            logger.error("日期获取失败")
+            sys.exit()
+
+    except Exception as e:
+        logger.error(f"获取日期异常: {str(e)}")
+        sys.exit()
+
+
+MAX_RETRIES = 3  # 最大重试次数
+RETRY_DELAY = 5  # 重试间隔时间(秒)
+
+
+def send_post_request_and_save_response(url, data, headers):
+    retries = 0
+    while retries < MAX_RETRIES:
+        try:
+            response = requests.post(url, json=data, headers=headers, timeout=10)
+            response.raise_for_status()
+            response_data = response.json()
+            return response_data
+        except requests.exceptions.Timeout:
+            logger.error("请求超时，正在重试...")
+            retries += 1
+            time.sleep(RETRY_DELAY)
+        except Exception as e:
+            logger.error(f"request请求异常: {str(e)}")
+            retries += 1
+            time.sleep(RETRY_DELAY)
+    logger.error("超过最大重试次数,请求失败。")
+    sys.exit()
+
+
+# 获取教室 id
+def get_build_id(classname):
+    logger.info(f"教室名称: {classname}")
+    build_id = classroom_id_mapping.get(classname)
+    # logger.info(build_id)
+    return build_id
+
+
+def get_segment(build_id, nowday):
+    try:
+        post_data = {
+            "build_id": build_id
+        }
+
+        request_headers = {
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "Accept": "application/json, text/plain, */*",
+            "lang": "zh",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "Origin": "http://libyy.qfnu.edu.cn",
+            "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5"
+        }
+
+        res = send_post_request_and_save_response(URL_CLASSROOM_DETAIL_INFO, post_data, request_headers)
+        segment = None
+        # logger.info(res)
+        # 提取"今天"或者"明天"的教室的 segment
+        for item in res['data']:
+            if item['day'] == nowday:
+                segment = item['times'][0]['id']
+                # logger.info(segment)
+                break
+
+        return segment
+    except Exception as e:
+        logger.error(f"获取segment时出错: {str(e)}")
+        sys.exit()
+
+
+def get_seat_info(build_id, segment, nowday):
+    try:
+        interrupted = False
+        while not interrupted:
+            try:
+                post_data = {
+                    "area": build_id,
+                    "segment": segment,
+                    "day": nowday,
+                    "startTime": "08:00",
+                    "endTime": "22:00",
+                }
+
+                request_headers = {
+                    "Content-Type": "application/json",
+                    "Connection": "keep-alive",
+                    "Accept": "application/json, text/plain, */*",
+                    "lang": "zh",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
+                                  "like Gecko)"
+                                  "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+                    "Origin": "http://libyy.qfnu.edu.cn",
+                    "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
+                    "Accept-Encoding": "gzip, deflate",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5"
+                }
+
+                res = send_post_request_and_save_response(URL_CLASSROOM_SEAT, post_data, request_headers)
+                # logger.info(res)
+                free_seats = []
+                for seat in res['data']:
+                    if seat['status_name'] == '空闲':
+                        free_seats.append({'id': seat['id'], 'no': seat['no']})
+
+                # logger.info(free_seats)
+                time.sleep(1)
+                return free_seats
+
+            except requests.exceptions.Timeout:
+                logger.warning("请求超时，正在重试...")
+
+            except Exception as e:
+                logger.error(f"获取座位信息异常: {str(e)}")
+                sys.exit()
+
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        logger.info(f"主动停止程序")
+    except Exception as e:
+        logger.error(f"循环异常: {str(e)}")
+        sys.exit()
+
+
+if __name__ == "__main__":
+    logger.info("")
