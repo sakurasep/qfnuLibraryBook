@@ -91,7 +91,7 @@ def check_reservation_status(seat_id, m):
             interrupted = True
         elif status == "该空间当前状态不可预约":
             logger.info("此位置已被预约")
-            if m == "3":
+            if m == "1":
                 logger.info(f"{seat_id} 已被预约，加入排除名单")
                 global_exclude_ids.add(seat_id)
                 time.sleep(1)
