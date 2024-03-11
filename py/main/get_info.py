@@ -3,6 +3,12 @@ import time
 from datetime import timedelta, datetime
 import sys
 import requests
+from Crypto.Cipher import AES
+from Crypto.Util.Padding import pad, unpad
+from datetime import datetime
+import getpass
+from get_bearer_token import get_bearer_token
+import base64
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("开始打印日志")
@@ -126,6 +132,81 @@ def get_segment(build_id, nowday):
     except Exception as e:
         logger.error(f"获取segment时出错: {str(e)}")
         sys.exit()
+
+
+# 根据当前系统时间获取 key
+def get_key():
+    # 获取当前日期，并转换为字符串
+    current_date = datetime.now().strftime("%Y%m%d")
+
+    # 生成回文
+    palindrome = current_date[::-1]
+
+    # 使用当前日期和回文作为密钥
+    key = current_date + palindrome
+
+    # print("当前日期:", current_date)
+    # print("回文:", palindrome)
+    # print("密钥:", key)
+
+    return key
+
+
+# 读取授权码
+def get_auth_token():
+    # token = "test"
+    # return token
+    try:
+        # 从命令行中获取用户名和密码
+        username = input("请输入用户名（学号）: \n")
+        password = getpass.getpass('请输入密码: \n')
+        name, token = get_bearer_token(username, password)
+        logger.info(f"你好，{name}同学")
+        new_token = "bearer" + str(token)
+        # logger.info(new_token)
+        return new_token
+    except Exception as e:
+        logger.error(f"获取授权码时发生异常: {str(e)}")
+        sys.exit()
+
+
+# 加密函数
+def encrypt(text):
+    # 自动获取 key
+    key = get_key()
+    # 目前获取到的加密密钥
+    iv = "ZZWBKJ_ZHIHUAWEI"
+    key_bytes = key.encode('utf-8')
+    iv_bytes = iv.encode('utf-8')
+
+    cipher = AES.new(key_bytes, AES.MODE_CBC, iv_bytes)
+    ciphertext_bytes = cipher.encrypt(pad(text.encode('utf-8'), AES.block_size))
+
+    return base64.b64encode(ciphertext_bytes).decode('utf-8')
+
+
+# 定义解密函数
+def decrypt(ciphertext):
+    # 自动获取 key
+    key = get_key()
+    # 目前获取到的加密密钥
+    iv = "ZZWBKJ_ZHIHUAWEI"
+
+    # 将密钥和初始化向量转换为 bytes 格式
+    key_bytes = key.encode('utf-8')
+    iv_bytes = iv.encode('utf-8')
+
+    # 将密文进行 base64 解码
+    ciphertext = base64.b64decode(ciphertext)
+
+    # 使用 AES 进行解密
+    cipher = AES.new(key_bytes, AES.MODE_CBC, iv_bytes)
+    decrypted_bytes = cipher.decrypt(ciphertext)
+
+    # 去除解密后的填充
+    decrypted_text = unpad(decrypted_bytes, AES.block_size).decode('utf-8')
+
+    return decrypted_text
 
 
 def get_seat_info(build_id, segment, nowday):
