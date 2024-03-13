@@ -1,0 +1,19 @@
+name: AutoOnGithubAction
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12'
+        architecture: 'x64'
+
+    - name: Check Python version
+      run: python --version
+
+    # Add more steps as needed for your workflow
