@@ -158,7 +158,7 @@ def get_auth_token(username, password):
 
         # 调用获取授权码的函数，使用从配置文件中读取到的用户名和密码
         name, token = get_bearer_token(username, password)
-        logger.info(f"你好，{name}同学")
+        logger.info(f"成功登录")
         new_token = "bearer" + str(token)
         return new_token
     except Exception as e:
