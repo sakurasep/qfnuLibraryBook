@@ -39,12 +39,12 @@ jobs:
         PASSWORD: ${{ secrets.PASSWORD }}
 
     - name: 显示配置 YAML
-      run: cat config.yaml
+      run: cat py/main/config.yml
 
     - name: 安装所需依赖
       run: |
-        pip install -r requirements.txt
+        pip install -r py/main/requirements.txt
 
     - name: 运行 Python 脚本
       run: |
-        python get_seat.py
+        python py/main/get_seat.py
