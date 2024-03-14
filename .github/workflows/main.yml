@@ -21,14 +21,9 @@ jobs:
 
     - name: 检出仓库代码到工作区
       uses: actions/checkout@v2
-
-    - name: 输出路径
-      run: |
-        ls
-        cd py/main
       
 
-    - name: 创建配置 YAML 文件
+    - name: 应用环境变量
       uses: microsoft/variable-substitution@v1
       with:
         files: 'py/main/config.yml'  # 注意文件路径
@@ -38,8 +33,8 @@ jobs:
         USERNAME: ${{ secrets.USERNAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
 
-    - name: 显示配置 YAML
-      run: cat py/main/config.yml
+    # - name: 显示配置 YAML
+    #   run: cat py/main/config.yml
 
     - name: 安装所需依赖
       run: |
