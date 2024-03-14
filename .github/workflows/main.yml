@@ -30,7 +30,7 @@ jobs:
         CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         USERNAME: ${{ secrets.USERNAME }}
-        PASSWORD: ${{ secrets.PASSWORD }}de 
+        PASSWORD: ${{ secrets.PASSWORD }}
 
     - name: 显示配置 YAML
       run: cat config.yaml
