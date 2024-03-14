@@ -1,4 +1,4 @@
-name: 自动执行GitHub操作
+name: 定时预约
 
 on:
   workflow_dispatch:
