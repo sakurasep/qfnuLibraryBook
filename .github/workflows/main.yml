@@ -22,6 +22,9 @@ jobs:
     - name: 检出仓库代码到工作区
       uses: actions/checkout@v2
 
+    - name: 输出路径
+      run: ls
+
     - name: 创建配置 YAML 文件
       uses: microsoft/variable-substitution@v1
       with:
