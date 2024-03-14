@@ -32,6 +32,7 @@ jobs:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         USERNAME: ${{ secrets.USERNAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
+        BARK_URL: ${{ secrets.BARK_URL }}
 
     # - name: 显示配置 YAML
     #   run: cat py/main/config.yml

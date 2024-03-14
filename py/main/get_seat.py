@@ -30,11 +30,15 @@ SEAT_ID = ""
 DATE = ""
 USERNAME = ""
 PASSWORD = ""
+GITHUB = ""
+BARK_URL = ""
+BARK_EXTRA = ""
 
 
 # 读取YAML配置文件并设置全局变量
 def read_config_from_yaml():
-    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_URL, CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD
+    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_URL, \
+        CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD, GITHUB, BARK_EXTRA, BARK_URL
     current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
     config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
     with open(config_file_path, 'r') as yaml_file:
@@ -48,6 +52,9 @@ def read_config_from_yaml():
         DATE = config.get("DATE", "")
         USERNAME = config.get('USERNAME', '')
         PASSWORD = config.get('PASSWORD', '')
+        GITHUB = config.get("GITHUB", "")
+        BARK_URL = config.get("BARK_URL", "")
+        BARK_EXTRA = config.get("BARK_EXTRA", "")
 
 
 # 在代码的顶部定义全局变量
@@ -58,16 +65,19 @@ AUTH_TOKEN = ""
 NEW_DATE = ""
 
 # 配置常量
-global_exclude_ids = {7443, 7448, 7453, 7458, 7463, 7468, 7473, 7478, 7483, 7488, 7493, 7498, 7503, 7508, 7513, 7518,
-                      7572, 7575, 7578, 7581, 7584, 7587, 7590, 7785, 7788, 7791, 7794, 7797, 7800, 7803, 7806, 7291,
-                      7296, 7301, 7306, 7311, 7316, 7321, 7326, 7331, 7336, 7341, 7346, 7351, 7356, 7361, 7366, 7369,
-                      7372, 7375, 7378, 7381, 7384, 7387, 7390, 7417, 7420, 7423, 7426, 7429, 7432, 7435, 7438, 7115,
-                      7120, 7125, 7130, 7135, 7140, 7145, 7150, 7155, 7160, 7165, 7170, 7175, 7180, 7185, 7190, 7241,
-                      7244, 7247, 7250, 7253, 7256, 7259, 7262, 7761, 7764, 7767, 7770, 7773, 7776, 7779, 7782}
+EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483', '7488', '7493', '7498', '7503',
+              '7508', '7513', '7518', '7572', '7575', '7578', '7581', '7584', '7587', '7590', '7785', '7788', '7791',
+              '7794', '7797', '7800', '7803', '7806', '7291', '7296', '7301', '7306', '7311', '7316', '7321', '7326',
+              '7331', '7336', '7341', '7346', '7351', '7356', '7361', '7366', '7369', '7372', '7375', '7378', '7381',
+              '7384', '7387', '7390', '7417', '7420', '7423', '7426', '7429', '7432', '7435', '7438', '7115', '7120',
+              '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175', '7180', '7185',
+              '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7761', '7764', '7767', '7770',
+              '7773', '7776', '7779', '7782'}
 MAX_RETRIES = 10  # 最大重试次数
 RETRY_DELAY = 3  # 重试间隔时间(秒)
 
 
+# 打印变量
 def print_variables():
     variables = {
         "CHANNEL_ID": CHANNEL_ID,
@@ -77,12 +87,16 @@ def print_variables():
         "CLASSROOMS_NAME": CLASSROOMS_NAME,
         "SEAT_ID": SEAT_ID,
         "USERNAME": USERNAME,
-        "PASSWORD": PASSWORD
+        "PASSWORD": PASSWORD,
+        "GITHUB": GITHUB,
+        "BARK_URL": BARK_URL,
+        "BARK_EXTRA": BARK_EXTRA
     }
     for var_name, var_value in variables.items():
         logger.info(f"{var_name}: {var_value} - {type(var_value)}")
 
 
+# post 请求
 def send_post_request_and_save_response(url, data, headers):
     retries = 0
     while retries < MAX_RETRIES:
@@ -103,6 +117,23 @@ def send_post_request_and_save_response(url, data, headers):
     sys.exit()
 
 
+# get 请求
+def send_get_request(url):
+    try:
+        response = requests.get(url)
+        # 检查响应状态码是否为200
+        if response.status_code == 200:
+            logger.info("成功推送消息到 Bark")
+            # 返回响应内容
+            return response.text
+        else:
+            logger.error(f"推送到 Bark 的 GET请求失败，状态码：{response.status_code}")
+            return None
+    except requests.exceptions.RequestException:
+        logger.info("GET请求异常, 你的 BARK 链接不正确")
+        return None
+
+
 async def send_seat_result_to_channel():
     try:
         # 使用 API 令牌初始化您的机器人
@@ -110,10 +141,12 @@ async def send_seat_result_to_channel():
         logger.info(f"要发送的消息为： {MESSAGE}\n")
         await bot.send_message(chat_id=CHANNEL_ID, text=MESSAGE)
     except Exception as e:
-        logger.error(f"发送消息到 Telegram 失败: {e}")
+        logger.info(f"发送消息到 Telegram 失败，你应该没有填写 token 和 id")
+        return e
 
 
 def check_book_status(auth):
+    global MESSAGE
     try:
         post_data = {
             "page": 1,
@@ -140,9 +173,15 @@ def check_book_status(auth):
         for entry in res["data"]["data"]:
             if entry["statusName"] == "预约成功" and DATE == "tomorrow":
                 logger.info("存在已经预约的座位")
+                MESSAGE += "存在已经预约的座位"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
                 sys.exit()
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
+                MESSAGE += "存在正在使用的座位"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
                 # 发送中断信号停止整个程序
                 sys.exit()
     except KeyError:
@@ -160,44 +199,52 @@ def check_reservation_status(auth_token):
         logger.info(status)
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+            MESSAGE += "重复预约, 请检查选择的时间段或是否已经成功预约"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "预约成功":
             # elif "1" == "1":
             logger.info("成功预约")
             MESSAGE += f"预约状态为:{status}"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "开放预约时间19:20":
-            # 获取当前时间
-            current_time = datetime.datetime.now()
-            # 设置预约时间为19:20
-            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
-            # 计算距离预约时间的秒数
-            time_difference = (reservation_time - current_time).total_seconds()
-            # 打印当前时间和距离预约时间的秒数
-            logger.info(f"当前时间: {current_time}")
-            logger.info(f"距离预约时间还有: {time_difference} 秒")
-            # 如果距离时间过长，自动停止程序
-            if time_difference > 500:
-                logger.info("距离预约时间过长，程序将自动停止。")
-                sys.exit()
-
+            logger.info("未到预约时间")
+            MESSAGE += f"预约状态为:{status}"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
+            sys.exit()
         elif status == "您尚未登录":
             logger.info("没有登录，请检查是否正确获取了 token")
+            MESSAGE += f"预约状态为:{status}"
+            MESSAGE += "没有登录，请检查是否正确获取了 token"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "该空间当前状态不可预约":
             logger.info("此位置已被预约")
             if MODE == "2":
                 logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
+                MESSAGE += f"预约状态为:{status}"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
                 sys.exit()
             else:
                 logger.info(f"选定座位已被预约，重新选定")
                 time.sleep(1)
         else:
             logger.error("未知状态，程序退出")
+            MESSAGE += "未知状态，程序退出"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
             sys.exit()
     else:
         logger.error("没有获取到状态信息")
+        MESSAGE += "没有获取到状态信息"
+        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+        asyncio.run(send_seat_result_to_channel())
         sys.exit()
 
 
@@ -211,6 +258,7 @@ def post_to_get_seat(select_id, segment, auth):
 
     # 加密数据
     aes_data = encrypt(str(origin_data))
+    # aes_data = "test"
     # logger.info(aes_data)
 
     # 测试解密数据
@@ -264,7 +312,8 @@ def select_seat(auth, build_id, segment, nowday):
             data = get_seat_info(build_id, segment, nowday)
             # 优选逻辑
             if MODE == "1":
-                new_data = [d for d in data if d['id'] not in global_exclude_ids]
+                new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
+                logger.info(new_data)
                 # 检查返回的列表是否为空
                 if not new_data:
                     logger.info("无可用座位, 程序将 3s 后再次获取")
@@ -307,13 +356,37 @@ def process_classroom(classroom_name):
 def get_info_and_select_seat():
     global AUTH_TOKEN, NEW_DATE
     try:
+        if DATE == "tomorrow":
+            # 获取当前时间
+            current_time = datetime.datetime.now()
+            # 如果是 Github Action 环境
+            if GITHUB:
+                current_time += datetime.timedelta(hours=8)
+            # 设置预约时间为19:20
+            reservation_time = current_time.replace(hour=20, minute=20, second=0, microsecond=0)
+            # 计算距离预约时间的秒数
+            time_difference = (reservation_time - current_time).total_seconds()
+            # 打印当前时间和距离预约时间的秒数
+            logger.info(f"当前时间: {current_time}")
+            logger.info(f"距离预约时间还有: {time_difference} 秒")
+            # 如果距离时间过长，自动停止程序
+            if time_difference > 100000:
+                logger.info("距离预约时间过长，程序将自动停止。")
+                sys.exit()
+        # 默认逻辑
         logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
-        # 获取授权码
         AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
         check_book_status(AUTH_TOKEN)
+
+        # 多线程执行程序
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            executor.map(process_classroom, CLASSROOMS_NAME)
+            futures = {executor.submit(process_classroom, name): name for name in CLASSROOMS_NAME}
+            # 等待任一线程完成
+            done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
+            # 取消尚未完成的线程
+            for future in not_done:
+                future.cancel()
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")

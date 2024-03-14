@@ -20,11 +20,9 @@ macOS Sonoma 14.3
 
 ## 使用方法
 
-克隆项目到本地，然后在 py/main 目录下执行 
-
-1. pip install -r requirements.txt
-
-2. python get_seat.py
+1. Fork 本项目，修改 `/py/main` 里的 `config.yml`
+2. 在 Github 仓库中添加 （必选）USERNAME，PASSWORD (推荐) BARK_URL （可选）CHANNEL_ID TELEGRAM_BOT_TOKEN
+![img.png](assets/img.png)
 
 ### 运行模式
 

@@ -240,7 +240,7 @@ def get_seat_info(build_id, segment, nowday):
                     if seat['status_name'] == '空闲':
                         free_seats.append({'id': seat['id'], 'no': seat['no']})
 
-                # logger.info(free_seats)
+                logger.info(free_seats)
                 time.sleep(1)
                 return free_seats
 

@@ -3,11 +3,18 @@ CHANNEL_ID: ""
 TELEGRAM_BOT_TOKEN: ""
 TELEGRAM_URL: "https://telegram.sakurasep.workers.dev/bot"
 
+# Bark 相关
+BARK_URL: ""
+BARK_EXTRA: "?icon=https://cdn.sakurasep.site/Website/new_avatar_256.png"
+
 # 账号授权相关
 USERNAME: ""
 PASSWORD: ""
 
-# 其他设置
+# 是否是 Github Action
+GITHUB: True
+
+# 程序设置
 MODE: "1"
 SEAT_ID: "7440"
 DATE: "tomorrow"
