@@ -1,7 +1,7 @@
 # Telegram 相关
 CHANNEL_ID: ""
 TELEGRAM_BOT_TOKEN: ""
-TELEGRAM_URL: ""
+TELEGRAM_URL: "https://telegram.sakurasep.workers.dev/bot"
 
 # 账号授权相关
 USERNAME: ""
