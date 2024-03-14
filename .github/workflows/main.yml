@@ -31,7 +31,7 @@ jobs:
     - name: 创建配置 YAML 文件
       uses: microsoft/variable-substitution@v1
       with:
-        files: 'config.yml'
+        files: 'py/main/config.yml'  # 注意文件路径
       env:
         CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
