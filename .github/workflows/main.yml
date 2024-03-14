@@ -1,19 +1,44 @@
-name: AutoOnGithubAction
+name: 自动执行GitHub操作
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 11 * * *' # 北京时间每天的19:15
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Python 3.12
+    - name: 安装最新版本的 Python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.12'
+        python-version: 'latest'
         architecture: 'x64'
 
-    - name: Check Python version
+    - name: 检查 Python 版本
       run: python --version
 
-    # Add more steps as needed for your workflow
+    - name: 检出仓库代码到工作区
+      uses: actions/checkout@v2
+
+    - name: 创建配置 YAML 文件
+      uses: microsoft/variable-substitution@v1
+      with:
+        files: 'config.yml'
+      env:
+        CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        USERNAME: ${{ secrets.USERNAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}de 
+
+    - name: 显示配置 YAML
+      run: cat config.yaml
+
+    - name: 安装所需依赖
+      run: |
+        pip install -r requirements.txt
+
+    - name: 运行 Python 脚本
+      run: |
+        python get_seat.py

@@ -43,7 +43,7 @@ def get_bearer_token(username, password):
         # 解析响应并返回姓名和 Token
         return parsed_res["member"]["name"], parsed_res["member"]["token"]
     except Exception as e:
-        logging.info(f"获取 token 异常")
+        logging.info(f"获取 token 异常，账号密码错误")
         sys.exit()
 
 

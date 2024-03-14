@@ -1,13 +1,15 @@
+import base64
 import logging
-import time
-from datetime import timedelta
 import sys
+import time
+from datetime import datetime
+from datetime import timedelta
+
 import requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
-from datetime import datetime
+
 from get_bearer_token import get_bearer_token
-import base64
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("开始打印日志")
@@ -37,21 +39,20 @@ classroom_id_mapping = {
 # 常量定义
 URL_CLASSROOM_DETAIL_INFO = "http://libyy.qfnu.edu.cn/api/Seat/date"
 URL_CLASSROOM_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/seat"
+MAX_RETRIES = 10  # 最大重试次数
+RETRY_DELAY = 3  # 重试间隔时间(秒)
 
 
 # 获取预约的日期
-def get_date():
+def get_date(date):
     try:
-        # 获取用户输入的日期信息
-        # argument = input("请输入日期（'今天输入 0' 或 '明天输入 1'）: \n")
-        argument = "1"
         # 判断预约的时间
-        if argument == "0":
+        if date == "today":
             nowday = datetime.now().date()
-        elif argument == "1":
+        elif date == "tomorrow":
             nowday = datetime.now().date() + timedelta(days=1)
         else:
-            logger.error(f"未知的参数: {argument}")
+            logger.error(f"未知的参数: {date}")
             sys.exit()
         # 结果判断
         if nowday:
@@ -64,10 +65,6 @@ def get_date():
     except Exception as e:
         logger.error(f"获取日期异常: {str(e)}")
         sys.exit()
-
-
-MAX_RETRIES = 3  # 最大重试次数
-RETRY_DELAY = 5  # 重试间隔时间(秒)
 
 
 def send_post_request_and_save_response(url, data, headers):
@@ -152,20 +149,17 @@ def get_key():
     return key
 
 
-# 读取授权码
-def get_auth_token():
-    # token = "test"
-    # return token
+# 获取授权码
+def get_auth_token(username, password):
     try:
-        # 从命令行中获取用户名和密码
-        # username = input("请输入用户名（学号）: \n")
-        # password = getpass.getpass('请输入密码: \n')
-        username = ""
-        password = ""
+        # 如果未从配置文件中读取到用户名或密码，则抛出异常
+        if not username or not password:
+            raise ValueError("未找到用户名或密码")
+
+        # 调用获取授权码的函数，使用从配置文件中读取到的用户名和密码
         name, token = get_bearer_token(username, password)
         logger.info(f"你好，{name}同学")
         new_token = "bearer" + str(token)
-        # logger.info(new_token)
         return new_token
     except Exception as e:
         logger.error(f"获取授权码时发生异常: {str(e)}")

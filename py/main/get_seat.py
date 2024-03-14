@@ -1,14 +1,16 @@
 import asyncio
+import concurrent.futures
+import datetime
 import logging
-import multiprocessing
 import os
 import random
-import signal
-import time
-import requests
 import sys
+import time
 
+import requests
+import yaml
 from telegram import Bot
+
 from get_info import get_date, get_seat_info, get_segment, get_build_id, get_auth_token, encrypt
 
 # 配置日志
@@ -18,21 +20,67 @@ logger = logging.getLogger(__name__)
 URL_GET_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/confirm"
 URL_CHECK_STATUS = "http://libyy.qfnu.edu.cn/api/Member/seat"
 
+# 配置文件
+CHANNEL_ID = ""
+TELEGRAM_BOT_TOKEN = ""
+TELEGRAM_URL = ""
+MODE = ""
+CLASSROOMS_NAME = ""
+SEAT_ID = ""
+DATE = ""
+USERNAME = ""
+PASSWORD = ""
+
+
+# 读取YAML配置文件并设置全局变量
+def read_config_from_yaml():
+    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_URL, CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD
+    current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
+    config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
+    with open(config_file_path, 'r') as yaml_file:
+        config = yaml.safe_load(yaml_file)
+        CHANNEL_ID = config.get('CHANNEL_ID', '')
+        TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
+        TELEGRAM_URL = config.get('TELEGRAM_URL', '')
+        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
+        MODE = config.get("MODE", "")
+        SEAT_ID = config.get("SEAT_ID", "")
+        DATE = config.get("DATE", "")
+        USERNAME = config.get('USERNAME', '')
+        PASSWORD = config.get('PASSWORD', '')
+
+
 # 在代码的顶部定义全局变量
-interrupted = False
+FLAG = False
+SEAT_RESULT = {}
+MESSAGE = ""
+AUTH_TOKEN = ""
+NEW_DATE = ""
+
+# 配置常量
 global_exclude_ids = {7443, 7448, 7453, 7458, 7463, 7468, 7473, 7478, 7483, 7488, 7493, 7498, 7503, 7508, 7513, 7518,
                       7572, 7575, 7578, 7581, 7584, 7587, 7590, 7785, 7788, 7791, 7794, 7797, 7800, 7803, 7806, 7291,
                       7296, 7301, 7306, 7311, 7316, 7321, 7326, 7331, 7336, 7341, 7346, 7351, 7356, 7361, 7366, 7369,
                       7372, 7375, 7378, 7381, 7384, 7387, 7390, 7417, 7420, 7423, 7426, 7429, 7432, 7435, 7438, 7115,
                       7120, 7125, 7130, 7135, 7140, 7145, 7150, 7155, 7160, 7165, 7170, 7175, 7180, 7185, 7190, 7241,
                       7244, 7247, 7250, 7253, 7256, 7259, 7262, 7761, 7764, 7767, 7770, 7773, 7776, 7779, 7782}
-seat_result = {}
-CHANNEL_ID = "-4163947299"
-TELEGRAM_BOT_TOKEN = '6441897020:AAFL9QlApvr64CB440qjehy7zpv5Df3qHqk'
-TELEGRAM_URL = "https://telegram.sakurasep.workers.dev/bot"
-message = ""
-MAX_RETRIES = 3  # 最大重试次数
-RETRY_DELAY = 5  # 重试间隔时间(秒)
+MAX_RETRIES = 10  # 最大重试次数
+RETRY_DELAY = 3  # 重试间隔时间(秒)
+
+
+def print_variables():
+    variables = {
+        "CHANNEL_ID": CHANNEL_ID,
+        "TELEGRAM_BOT_TOKEN": TELEGRAM_BOT_TOKEN,
+        "TELEGRAM_URL": TELEGRAM_URL,
+        "MODE": MODE,
+        "CLASSROOMS_NAME": CLASSROOMS_NAME,
+        "SEAT_ID": SEAT_ID,
+        "USERNAME": USERNAME,
+        "PASSWORD": PASSWORD
+    }
+    for var_name, var_value in variables.items():
+        logger.info(f"{var_name}: {var_value} - {type(var_value)}")
 
 
 def send_post_request_and_save_response(url, data, headers):
@@ -55,99 +103,108 @@ def send_post_request_and_save_response(url, data, headers):
     sys.exit()
 
 
-def add_message(text):
-    global message
-    message += text
-
-
 async def send_seat_result_to_channel():
     try:
         # 使用 API 令牌初始化您的机器人
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
-        logger.info(f"要发送的消息为： {message}\n")
-        await bot.send_message(chat_id=CHANNEL_ID, text=message)
+        logger.info(f"要发送的消息为： {MESSAGE}\n")
+        await bot.send_message(chat_id=CHANNEL_ID, text=MESSAGE)
     except Exception as e:
         logger.error(f"发送消息到 Telegram 失败: {e}")
 
 
 def check_book_status(auth):
-    post_data = {
-        "page": 1,
-        "limit": 3,
-        "authorization": auth
-    }
-    request_headers = {
-        "Content-Type": "application/json",
-        "Connection": "keep-alive",
-        "Accept": "application/json, text/plain, */*",
-        "lang": "zh",
-        "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                      "like Gecko)"
-                      "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-        "Origin": "http://libyy.qfnu.edu.cn",
-        "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
-        "Accept-Encoding": "gzip, deflate",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-        "Authorization": auth
-    }
-    res = send_post_request_and_save_response(URL_CHECK_STATUS, post_data, request_headers)
-    # logger.info(res)
-    for entry in res["data"]["data"]:
-        if entry["statusName"] == "预约成功":
-            logger.info("存在已经预约的座位")
-            # 发送中断信号停止整个程序
-            os.kill(os.getpid(), signal.SIGINT)
-            break  # 停止循环
+    try:
+        post_data = {
+            "page": 1,
+            "limit": 3,
+            "authorization": auth
+        }
+        request_headers = {
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "Accept": "application/json, text/plain, */*",
+            "lang": "zh",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
+                          "like Gecko)"
+                          "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "Origin": "http://libyy.qfnu.edu.cn",
+            "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
+            "Authorization": auth
+        }
+        res = send_post_request_and_save_response(URL_CHECK_STATUS, post_data, request_headers)
+        # logger.info(res)
+        for entry in res["data"]["data"]:
+            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+                logger.info("存在已经预约的座位")
+                sys.exit()
+            elif entry["statusName"] == "使用中" and DATE == "today":
+                logger.info("存在正在使用的座位")
+                # 发送中断信号停止整个程序
+                sys.exit()
+    except KeyError:
+        logger.error("数据获取失败")
+        sys.exit()
 
 
 # 状态检测函数
-def check_reservation_status(auth_token, seat_id, m):
-    global seat_result, interrupted
+def check_reservation_status(auth_token):
+    global SEAT_RESULT, FLAG, MESSAGE
     check_book_status(auth_token)
     # 状态信息检测
-    if 'msg' in seat_result:
-        status = seat_result['msg']
+    if 'msg' in SEAT_RESULT:
+        status = SEAT_RESULT['msg']
         logger.info(status)
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
-            interrupted = True
+            sys.exit()
         elif status == "预约成功":
             # elif "1" == "1":
             logger.info("成功预约")
-            add_message(f"预约状态为:{status}")
+            MESSAGE += f"预约状态为:{status}"
             asyncio.run(send_seat_result_to_channel())
-            interrupted = True
+            sys.exit()
         elif status == "开放预约时间19:20":
-            logger.info("未到预约时间,程序将会 10s 查询一次")
-            time.sleep(10)
+            # 获取当前时间
+            current_time = datetime.datetime.now()
+            # 设置预约时间为19:20
+            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
+            # 计算距离预约时间的秒数
+            time_difference = (reservation_time - current_time).total_seconds()
+            # 打印当前时间和距离预约时间的秒数
+            logger.info(f"当前时间: {current_time}")
+            logger.info(f"距离预约时间还有: {time_difference} 秒")
+            # 如果距离时间过长，自动停止程序
+            if time_difference > 500:
+                logger.info("距离预约时间过长，程序将自动停止。")
+                sys.exit()
+
         elif status == "您尚未登录":
             logger.info("没有登录，请检查是否正确获取了 token")
-            interrupted = True
+            sys.exit()
         elif status == "该空间当前状态不可预约":
             logger.info("此位置已被预约")
-            if m == "1":
-                logger.info(f"{seat_id} 已被预约，加入排除名单")
-                global_exclude_ids.add(seat_id)
-                time.sleep(1)
-                # logger.info(global_exclude_ids)
-            elif m == "2":
-                seat_id = input("请重新输入想要预约的相同自习室的 id:\n")
-                return seat_id
+            if MODE == "2":
+                logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
+                sys.exit()
             else:
-                logger.info(f"{seat_id} 已被预约，重新刷新状态")
+                logger.info(f"选定座位已被预约，重新选定")
                 time.sleep(1)
         else:
-            logger.info("未知状态，程序退出")
-            interrupted = True
+            logger.error("未知状态，程序退出")
+            sys.exit()
     else:
         logger.error("没有获取到状态信息")
+        sys.exit()
 
 
 # 预约函数
 def post_to_get_seat(select_id, segment, auth):
     # 定义全局变量
-    global seat_result
+    global SEAT_RESULT
     # 原始数据
     origin_data = '{{"seat_id":"{}","segment":"{}"}}'.format(select_id, segment)
     # logger.info(origin_data)
@@ -182,172 +239,91 @@ def post_to_get_seat(select_id, segment, auth):
     }
 
     # 发送POST请求并获取响应
-    seat_result = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
+    SEAT_RESULT = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
 
 
-def prefer_get_select_id(build_id):
-    try:
-        if build_id == 38:
-            logger.info("你选择的是三层的优选模式")
-            valid_ranges = list(range(7112, 7152)) + list(range(7192, 7216)) + list(range(7240, 7263))
-        elif build_id == 39:
-            logger.info("你选择的是四层的优选模式")
-            valid_ranges = list(range(7288, 7328)) + list(range(7368, 7392))
-        elif build_id == 40:
-            logger.info("你选择的是五层的优选模式")
-            valid_ranges = list(range(7440, 7480)) + list(range(7520, 7544)) + list(range(7568, 7591))
-        else:
-            logger.error("不支持的优选位置")
-            sys.exit()
-
-        # 从所有有效座位中去除已经被排除的座位
-        valid_seats = [seat_id for seat_id in valid_ranges if seat_id not in global_exclude_ids]
-
-        # 随机选择一个座位 id
-        if valid_seats:
-            select_id = random.choice(valid_seats)
-            return select_id
-        else:
-            logger.warning("没有符合条件的座位可供选择")
-            return None
-    except KeyboardInterrupt:
-        logger.info(f"接收到中断信号，程序将退出。")
+# 随机获取座位
+def random_get_seat(data):
+    global MESSAGE
+    # 随机选择一个字典
+    random_dict = random.choice(data)
+    # 获取该字典中 'id' 键对应的值
+    select_id = random_dict['id']
+    seat_no = random_dict['no']
+    logger.info(f"随机选择的座位为: {select_id} 真实位置: {seat_no}")
+    MESSAGE = f"随机选择的座位为: {select_id} 真实位置: {seat_no} \n"
+    return select_id
 
 
-# 模式1 && 3
-def get_and_select_seat_default(auth, build_id, segment, nowday, m):
+# 选座主要逻辑
+def select_seat(auth, build_id, segment, nowday):
     # 初始化
-    global message
     try:
-        while not interrupted:
+        while not FLAG:
+            # 获取座位信息
+            data = get_seat_info(build_id, segment, nowday)
             # 优选逻辑
-            if m == "1":
-                # logger.info(build_id)
-                select_id = prefer_get_select_id(build_id)
-                logger.info(f"优选的座位是:{select_id}")
-                message = f"优选的座位是:{select_id}"
-                time.sleep(1)
-            # 默认逻辑
-            else:
-                # logger.info(f"获取的 segment: {segment}")
-                data = get_seat_info(build_id, segment, nowday)
+            if MODE == "1":
+                new_data = [d for d in data if d['id'] not in global_exclude_ids]
                 # 检查返回的列表是否为空
-                if not data:
-                    logger.info("无可用座位")
+                if not new_data:
+                    logger.info("无可用座位, 程序将 3s 后再次获取")
+                    time.sleep(3)
                     continue
                 else:
-                    # 随机选择一个字典
-                    random_dict = random.choice(data)
-
-                    # 获取该字典中 'id' 键对应的值
-                    select_id = random_dict['id']
-                    seat_no = random_dict['no']
-                    logger.info(f"随机选择的座位为: {select_id} 真实位置: {seat_no}")
-                    message = f"随机选择的座位为: {select_id} 真实位置: {seat_no} \n"
-
-            if select_id is None:
-                logger.info("选定座位为空, 程序继续运行")
-                time.sleep(1)
-                continue
+                    select_id = random_get_seat(new_data)
+                    post_to_get_seat(select_id, segment, auth)
+                    check_reservation_status(auth)
+            # 指定逻辑
+            elif MODE == "2":
+                logger.info(f"你选定的座位为: {SEAT_ID}")
+                post_to_get_seat(SEAT_ID, segment, auth)
+                check_reservation_status(auth)
+            # 默认逻辑
+            elif MODE == "3":
+                # 检查返回的列表是否为空
+                if not data:
+                    logger.info("无可用座位, 程序将 3s 后再次获取")
+                    time.sleep(3)
+                    continue
+                else:
+                    select_id = random_get_seat(data)
+                    post_to_get_seat(select_id, segment, auth)
+                    check_reservation_status(auth)
             else:
-                post_to_get_seat(select_id, segment, auth)
-                # logger.info(seat_result)
-                check_reservation_status(auth, select_id, m)
+                logger.error(f"未知的模式: {MODE}")
 
     except KeyboardInterrupt:
         logger.info(f"接收到中断信号，程序将退出。")
 
 
-# 模式2
-def get_and_select_seat_selected(auth, segment, seat_id):
-    # 初始化
-    global seat_result
+def process_classroom(classroom_name):
+    build_id = get_build_id(classroom_name)
+    segment = get_segment(build_id, NEW_DATE)
+    select_seat(AUTH_TOKEN, build_id, segment, NEW_DATE)
+
+
+# 主函数
+def get_info_and_select_seat():
+    global AUTH_TOKEN, NEW_DATE
     try:
-        while not interrupted:
-            logger.info(f"你选定的座位为: {seat_id}")
-            post_to_get_seat(seat_id, segment, auth)
-            # logger.info(seat_result)
-            check_reservation_status(auth, seat_id, "2")
-
-    except KeyboardInterrupt:
-        logger.info(f"接收到中断信号，程序将退出。")
-
-
-# 进程池
-def process_classroom(auth, name, process_num, nowday, m):
-    try:
-        # 获取基本信息
-        build_id = get_build_id(name)
-        segment = get_segment(build_id, nowday)
-        # 进程池
-        with multiprocessing.Pool(processes=process_num) as pool:
-            params = [(auth, build_id, segment, nowday, m)] * process_num
-            pool.starmap(get_and_select_seat_default, params)
-        logger.info("进程完成")
-    except KeyboardInterrupt:
-        logger.info("收到中断信号，程序将退出")
-
-
-def default_get_seat(m):
-    try:
-        # 输入基本信息
-        # classroom_names = input("请输入教室名（多个教室名以空格分隔）:\n").split()
-        classroom_names = ["西校区图书馆-三层自习室", "西校区图书馆-四层自习室", "西校区图书馆-五层自习室"]
-        # process_number = int(input("请输入进程数: \n"))
-        process_number = 2
-        date = get_date()
-
+        logger.info(CLASSROOMS_NAME)
+        NEW_DATE = get_date(DATE)
         # 获取授权码
-        auth_token = get_auth_token()
-
-        processes = []
-
-        for classroom_name in classroom_names:
-            p = multiprocessing.Process(target=process_classroom,
-                                        args=(auth_token, classroom_name, process_number, date, m))
-            processes.append(p)
-            p.start()
-
-        for process in processes:
-            process.join()
-    except KeyboardInterrupt:
-        print("主动退出程序，程序将退出。")
-
-
-def selected_get_seat():
-    try:
-        # 输入基本信息
-        classroom_names = input("请输入教室名: \n").split()
-        seat_id = input("请输入预选座位的 id（非真实id）:\n")
-        date = get_date()
-
-        # 获取授权码
-        auth_token = get_auth_token()
-
-        # 获取基本信息
-        for classroom_name in classroom_names:
-            build_id = get_build_id(classroom_name)
-            segment = get_segment(build_id, date)
-            get_and_select_seat_selected(auth_token, segment, seat_id)
+        AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
+        check_book_status(AUTH_TOKEN)
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            executor.map(process_classroom, CLASSROOMS_NAME)
 
     except KeyboardInterrupt:
-        print("主动退出程序，程序将退出。")
+        logger.info("主动退出程序，程序将退出。")
 
 
 if __name__ == "__main__":
     try:
-        check_book_status(get_auth_token())
-        # 三种功能
-        # mode = input("请输入选座模式，1:优选模式 2:指定座位 3:默认随机\n")
-        mode = "1"
-        if mode == "3":
-            default_get_seat(mode)
-        if mode == "2":
-            selected_get_seat()
-        if mode == "1":
-            default_get_seat(mode)
-        else:
-            sys.exit()
+        read_config_from_yaml()
+        # print_variables()
+        get_info_and_select_seat()
 
     except KeyboardInterrupt:
-        print("主动退出程序，程序将退出。")
+        logger.info("主动退出程序，程序将退出。")

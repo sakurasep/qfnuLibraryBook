@@ -1,0 +1,19 @@
+# Telegram 相关
+CHANNEL_ID: ""
+TELEGRAM_BOT_TOKEN: ""
+TELEGRAM_URL: ""
+
+# 账号授权相关
+USERNAME: ""
+PASSWORD: ""
+
+# 其他设置
+MODE: "1"
+SEAT_ID: "7440"
+DATE: "tomorrow"
+CLASSROOMS_NAME:
+  - 西校区图书馆-五层自习室
+  - 西校区图书馆-四层自习室
+  - 西校区图书馆-三层自习室
+
+
