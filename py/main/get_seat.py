@@ -370,9 +370,16 @@ def get_info_and_select_seat():
             logger.info(f"当前时间: {current_time}")
             logger.info(f"距离预约时间还有: {time_difference} 秒")
             # 如果距离时间过长，自动停止程序
-            if time_difference > 100000:
+            if time_difference > 1000:
                 logger.info("距离预约时间过长，程序将自动停止。")
                 sys.exit()
+            # 如果距离时间在合适的范围内, 开始 10s 或者 3s 查询一次 剩余时间
+            elif 300 < time_difference <= 1000:
+                time.sleep(10)
+            elif 60 < time_difference <= 300:
+                time.sleep(3)
+            else:
+                time.sleep(1)
         # 默认逻辑
         logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
