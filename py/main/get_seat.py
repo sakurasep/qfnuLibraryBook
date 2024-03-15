@@ -98,6 +98,7 @@ def print_variables():
 
 # post 请求
 def send_post_request_and_save_response(url, data, headers):
+    global MESSAGE
     retries = 0
     while retries < MAX_RETRIES:
         try:
@@ -114,6 +115,9 @@ def send_post_request_and_save_response(url, data, headers):
             retries += 1
             time.sleep(RETRY_DELAY)
     logger.error("超过最大重试次数,请求失败。")
+    MESSAGE += "超过最大重试次数,请求失败。"
+    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+    asyncio.run(send_seat_result_to_channel())
     sys.exit()
 
 
@@ -186,6 +190,9 @@ def check_book_status(auth):
                 sys.exit()
     except KeyError:
         logger.error("数据获取失败")
+        MESSAGE += "数据获取失败"
+        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+        asyncio.run(send_seat_result_to_channel())
         sys.exit()
 
 
@@ -354,7 +361,7 @@ def process_classroom(classroom_name):
 
 # 主函数
 def get_info_and_select_seat():
-    global AUTH_TOKEN, NEW_DATE
+    global AUTH_TOKEN, NEW_DATE, MESSAGE
     try:
         if DATE == "tomorrow":
             # 获取当前时间
@@ -372,6 +379,9 @@ def get_info_and_select_seat():
             # 如果距离时间过长，自动停止程序
             if time_difference > 1000:
                 logger.info("距离预约时间过长，程序将自动停止。")
+                MESSAGE += "距离预约时间过长，程序将自动停止"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
                 sys.exit()
             # 如果距离时间在合适的范围内, 开始 10s 或者 3s 查询一次 剩余时间
             elif 300 < time_difference <= 1000:
