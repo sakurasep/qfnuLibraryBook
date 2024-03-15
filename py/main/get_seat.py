@@ -71,8 +71,7 @@ EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7
               '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175', '7180', '7185',
               '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7761', '7764', '7767', '7770',
               '7773', '7776', '7779', '7782'}
-MAX_RETRIES = 100  # 最大重试次数
-RETRY_DELAY = 2  # 重试间隔时间(秒)
+MAX_RETRIES = 200  # 最大重试次数
 
 
 # 打印变量
@@ -99,18 +98,16 @@ def send_post_request_and_save_response(url, data, headers):
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            response = requests.post(url, json=data, headers=headers, timeout=10)
+            response = requests.post(url, json=data, headers=headers, timeout=25)
             response.raise_for_status()
             response_data = response.json()
             return response_data
         except requests.exceptions.Timeout:
             logger.error("请求超时，正在重试...")
             retries += 1
-            time.sleep(RETRY_DELAY)
         except Exception as e:
             logger.error(f"request请求异常: {str(e)}")
             retries += 1
-            time.sleep(RETRY_DELAY)
     logger.error("超过最大重试次数,请求失败。")
     MESSAGE += "\n超过最大重试次数,请求失败。"
     send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
@@ -139,7 +136,7 @@ async def send_seat_result_to_channel():
     try:
         # 使用 API 令牌初始化您的机器人
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
-        logger.info(f"要发送的消息为： {MESSAGE}\n")
+        # logger.info(f"要发送的消息为： {MESSAGE}\n")
         await bot.send_message(chat_id=CHANNEL_ID, text=MESSAGE)
     except Exception as e:
         logger.info(f"发送消息到 Telegram 失败，你应该没有填写 token 和 id")
@@ -219,6 +216,7 @@ def check_reservation_status(auth_token):
             MESSAGE += f"\n预约状态为:{status}"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
+            # 理论来说是到不了这一句的
             time.sleep(5)
         elif status == "您尚未登录":
             logger.info("没有登录，请检查是否正确获取了 token")
@@ -237,7 +235,6 @@ def check_reservation_status(auth_token):
                 sys.exit()
             else:
                 logger.info(f"选定座位已被预约，重新选定")
-                time.sleep(1)
         else:
             logger.error("未知状态，程序退出")
             MESSAGE += "\n未知状态，程序退出"
@@ -320,13 +317,13 @@ def select_seat(auth, build_id, segment, nowday):
                 # logger.info(new_data)
                 # 检查返回的列表是否为空
                 if not new_data:
-                    logger.info("无可用座位, 程序将 3s 后再次获取")
-                    time.sleep(3)
+                    logger.info("无可用座位, 程序将 1s 后再次获取")
+                    time.sleep(1)
                     continue
                 else:
                     select_id = random_get_seat(new_data)
-                    post_to_get_seat(select_id, segment, auth)
                     check_reservation_status(auth)
+                    post_to_get_seat(select_id, segment, auth)
             # 指定逻辑
             elif MODE == "2":
                 logger.info(f"你选定的座位为: {SEAT_ID}")
@@ -368,7 +365,7 @@ def get_info_and_select_seat():
                 if GITHUB:
                     current_time += datetime.timedelta(hours=8)
                 # 设置预约时间为19:20
-                reservation_time = current_time.replace(hour=19, minute=45, second=0, microsecond=0)
+                reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
                 # 计算距离预约时间的秒数
                 time_difference = (reservation_time - current_time).total_seconds()
                 # 打印当前时间和距离预约时间的秒数
