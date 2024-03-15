@@ -3,7 +3,7 @@ name: 定时预约
 on:
   workflow_dispatch:
   schedule:
-    - cron: '15 11 * * *' # 北京时间每天的19:15
+    - cron: '10 11 * * *' # 北京时间每天的19:15
 
 jobs:
   build:
