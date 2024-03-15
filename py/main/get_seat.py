@@ -370,7 +370,7 @@ def get_info_and_select_seat():
             if GITHUB:
                 current_time += datetime.timedelta(hours=8)
             # 设置预约时间为19:20
-            reservation_time = current_time.replace(hour=20, minute=20, second=0, microsecond=0)
+            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
             # 计算距离预约时间的秒数
             time_difference = (reservation_time - current_time).total_seconds()
             # 打印当前时间和距离预约时间的秒数
