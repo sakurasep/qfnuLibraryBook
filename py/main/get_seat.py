@@ -23,7 +23,6 @@ URL_CHECK_STATUS = "http://libyy.qfnu.edu.cn/api/Member/seat"
 # 配置文件
 CHANNEL_ID = ""
 TELEGRAM_BOT_TOKEN = ""
-TELEGRAM_URL = ""
 MODE = ""
 CLASSROOMS_NAME = ""
 SEAT_ID = ""
@@ -37,7 +36,7 @@ BARK_EXTRA = ""
 
 # 读取YAML配置文件并设置全局变量
 def read_config_from_yaml():
-    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, TELEGRAM_URL, \
+    global CHANNEL_ID, TELEGRAM_BOT_TOKEN,  \
         CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD, GITHUB, BARK_EXTRA, BARK_URL
     current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
     config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
@@ -45,7 +44,6 @@ def read_config_from_yaml():
         config = yaml.safe_load(yaml_file)
         CHANNEL_ID = config.get('CHANNEL_ID', '')
         TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
-        TELEGRAM_URL = config.get('TELEGRAM_URL', '')
         CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
         MODE = config.get("MODE", "")
         SEAT_ID = config.get("SEAT_ID", "")
@@ -73,8 +71,8 @@ EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7
               '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175', '7180', '7185',
               '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7761', '7764', '7767', '7770',
               '7773', '7776', '7779', '7782'}
-MAX_RETRIES = 10  # 最大重试次数
-RETRY_DELAY = 3  # 重试间隔时间(秒)
+MAX_RETRIES = 100  # 最大重试次数
+RETRY_DELAY = 2  # 重试间隔时间(秒)
 
 
 # 打印变量
@@ -82,7 +80,6 @@ def print_variables():
     variables = {
         "CHANNEL_ID": CHANNEL_ID,
         "TELEGRAM_BOT_TOKEN": TELEGRAM_BOT_TOKEN,
-        "TELEGRAM_URL": TELEGRAM_URL,
         "MODE": MODE,
         "CLASSROOMS_NAME": CLASSROOMS_NAME,
         "SEAT_ID": SEAT_ID,
@@ -115,7 +112,7 @@ def send_post_request_and_save_response(url, data, headers):
             retries += 1
             time.sleep(RETRY_DELAY)
     logger.error("超过最大重试次数,请求失败。")
-    MESSAGE += "超过最大重试次数,请求失败。"
+    MESSAGE += "\n超过最大重试次数,请求失败。"
     send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
     asyncio.run(send_seat_result_to_channel())
     sys.exit()
@@ -177,20 +174,20 @@ def check_book_status(auth):
         for entry in res["data"]["data"]:
             if entry["statusName"] == "预约成功" and DATE == "tomorrow":
                 logger.info("存在已经预约的座位")
-                MESSAGE += "存在已经预约的座位"
+                MESSAGE += "\n存在已经预约的座位"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                 asyncio.run(send_seat_result_to_channel())
                 sys.exit()
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
-                MESSAGE += "存在正在使用的座位"
+                MESSAGE += "\n存在正在使用的座位"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                 asyncio.run(send_seat_result_to_channel())
                 # 发送中断信号停止整个程序
                 sys.exit()
     except KeyError:
         logger.error("数据获取失败")
-        MESSAGE += "数据获取失败"
+        MESSAGE += "\n数据获取失败"
         send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
         asyncio.run(send_seat_result_to_channel())
         sys.exit()
@@ -206,27 +203,27 @@ def check_reservation_status(auth_token):
         logger.info(status)
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
-            MESSAGE += "重复预约, 请检查选择的时间段或是否已经成功预约"
+            MESSAGE += "\n重复预约, 请检查选择的时间段或是否已经成功预约"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "预约成功":
             # elif "1" == "1":
             logger.info("成功预约")
-            MESSAGE += f"预约状态为:{status}"
+            MESSAGE += f"\n预约状态为:{status}"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "开放预约时间19:20":
             logger.info("未到预约时间")
-            MESSAGE += f"预约状态为:{status}"
+            MESSAGE += f"\n预约状态为:{status}"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
-            time.sleep(10)
+            time.sleep(5)
         elif status == "您尚未登录":
             logger.info("没有登录，请检查是否正确获取了 token")
-            MESSAGE += f"预约状态为:{status}"
-            MESSAGE += "没有登录，请检查是否正确获取了 token"
+            MESSAGE += f"\n预约状态为:{status}"
+            MESSAGE += "\n没有登录，请检查是否正确获取了 token"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
@@ -234,7 +231,7 @@ def check_reservation_status(auth_token):
             logger.info("此位置已被预约")
             if MODE == "2":
                 logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
-                MESSAGE += f"预约状态为:{status}"
+                MESSAGE += f"\n预约状态为:{status}"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                 asyncio.run(send_seat_result_to_channel())
                 sys.exit()
@@ -243,13 +240,13 @@ def check_reservation_status(auth_token):
                 time.sleep(1)
         else:
             logger.error("未知状态，程序退出")
-            MESSAGE += "未知状态，程序退出"
+            MESSAGE += "\n未知状态，程序退出"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
     else:
         logger.error("没有获取到状态信息")
-        MESSAGE += "没有获取到状态信息"
+        MESSAGE += "\n没有获取到状态信息"
         send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
         asyncio.run(send_seat_result_to_channel())
         sys.exit()
@@ -320,7 +317,7 @@ def select_seat(auth, build_id, segment, nowday):
             # 优选逻辑
             if MODE == "1":
                 new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
-                logger.info(new_data)
+                # logger.info(new_data)
                 # 检查返回的列表是否为空
                 if not new_data:
                     logger.info("无可用座位, 程序将 3s 后再次获取")
@@ -364,32 +361,34 @@ def get_info_and_select_seat():
     global AUTH_TOKEN, NEW_DATE, MESSAGE
     try:
         if DATE == "tomorrow":
-            # 获取当前时间
-            current_time = datetime.datetime.now()
-            # 如果是 Github Action 环境
-            if GITHUB:
-                current_time += datetime.timedelta(hours=8)
-            # 设置预约时间为19:20
-            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
-            # 计算距离预约时间的秒数
-            time_difference = (reservation_time - current_time).total_seconds()
-            # 打印当前时间和距离预约时间的秒数
-            logger.info(f"当前时间: {current_time}")
-            logger.info(f"距离预约时间还有: {time_difference} 秒")
-            # 如果距离时间过长，自动停止程序
-            if time_difference > 1000:
-                logger.info("距离预约时间过长，程序将自动停止。")
-                MESSAGE += "距离预约时间过长，程序将自动停止"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                sys.exit()
-            # 如果距离时间在合适的范围内, 开始 10s 或者 3s 查询一次 剩余时间
-            elif 300 < time_difference <= 1000:
-                time.sleep(10)
-            elif 60 < time_difference <= 300:
-                time.sleep(3)
-            else:
-                time.sleep(1)
+            while True:
+                # 获取当前时间
+                current_time = datetime.datetime.now()
+                # 如果是 Github Action 环境
+                if GITHUB:
+                    current_time += datetime.timedelta(hours=8)
+                # 设置预约时间为19:20
+                reservation_time = current_time.replace(hour=19, minute=45, second=0, microsecond=0)
+                # 计算距离预约时间的秒数
+                time_difference = (reservation_time - current_time).total_seconds()
+                # 打印当前时间和距离预约时间的秒数
+                logger.info(f"当前时间: {current_time}")
+                logger.info(f"距离预约时间还有: {time_difference} 秒")
+                # 如果距离时间过长，自动停止程序
+                if time_difference > 1000:
+                    logger.info("距离预约时间过长，程序将自动停止。")
+                    MESSAGE += "\n距离预约时间过长，程序将自动停止"
+                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                    asyncio.run(send_seat_result_to_channel())
+                    sys.exit()
+                # 如果距离时间在合适的范围内, 将设置等待时间
+                elif 1000 >= time_difference > 300:
+                    time.sleep(30)
+                elif 300 >= time_difference > 60:
+                    time.sleep(5)
+                else:
+                    break
+
         # 默认逻辑
         logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
