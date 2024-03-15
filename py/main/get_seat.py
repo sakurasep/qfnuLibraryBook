@@ -222,7 +222,7 @@ def check_reservation_status(auth_token):
             MESSAGE += f"预约状态为:{status}"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
-            sys.exit()
+            time.sleep(10)
         elif status == "您尚未登录":
             logger.info("没有登录，请检查是否正确获取了 token")
             MESSAGE += f"预约状态为:{status}"
