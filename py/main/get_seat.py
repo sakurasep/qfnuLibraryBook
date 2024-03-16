@@ -242,8 +242,8 @@ def check_reservation_status(auth_token):
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
     else:
-        logger.error("没有获取到状态信息")
-        MESSAGE += "\n没有获取到状态信息"
+        logger.error("没有获取到状态信息，token已过期")
+        MESSAGE += "\n没有获取到状态信息，token已过期"
         send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
         asyncio.run(send_seat_result_to_channel())
         sys.exit()
