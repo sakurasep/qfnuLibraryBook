@@ -1,10 +1,8 @@
-name: 定时预约
+name: 预约今天的位置
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '10 11 * * *' # 北京时间每天的19:15
-
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,6 +31,7 @@ jobs:
         USERNAME: ${{ secrets.USERNAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
         BARK_URL: ${{ secrets.BARK_URL }}
+        DATE: "today"
 
     # - name: 显示配置 YAML
     #   run: cat py/main/config.yml
