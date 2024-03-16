@@ -170,6 +170,7 @@ def get_auth_token(username, password):
 
 def check_book_status(auth):
     global MESSAGE
+    global TOKEN_EXPIRY
     # 检查 Token 是否过期
     if datetime.datetime.now() > TOKEN_EXPIRY:
         # Token 已过期，重新获取
