@@ -61,6 +61,8 @@ SEAT_RESULT = {}
 MESSAGE = ""
 AUTH_TOKEN = ""
 NEW_DATE = ""
+TOKEN_TIMESTAMP = None
+TOKEN_EXPIRY_DELTA = datetime.timedelta(hours=1, minutes=30) 
 
 # 配置常量
 EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483', '7488', '7493', '7498', '7503',
@@ -142,9 +144,38 @@ async def send_seat_result_to_channel():
         logger.info(f"发送消息到 Telegram 失败，你应该没有填写 token 和 id")
         return e
 
+def get_auth_token(username, password):
+    global TOKEN_TIMESTAMP
+    try:
+        # 如果未从配置文件中读取到用户名或密码，则抛出异常
+        if not username or not password:
+            raise ValueError("未找到用户名或密码")
+
+        # 检查 Token 是否过期
+        if TOKEN_TIMESTAMP is None or (datetime.datetime.now() - TOKEN_TIMESTAMP) > TOKEN_EXPIRY_DELTA:
+            # Token 过期或尚未获取，重新获取
+            name, token = get_bearer_token(username, password)
+            logger.info(f"成功获取授权码")
+            new_token = "bearer" + str(token)
+            # 更新 Token 的时间戳
+            TOKEN_TIMESTAMP = datetime.datetime.now()
+            return new_token
+        else:
+            logger.info("使用现有授权码")
+            return new_token
+    except Exception as e:
+        logger.error(f"获取授权码时发生异常: {str(e)}")
+        sys.exit()
+
 
 def check_book_status(auth):
     global MESSAGE
+    # 检查 Token 是否过期
+    if datetime.datetime.now() > TOKEN_EXPIRY:
+        # Token 已过期，重新获取
+        AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
+        # 更新 Token 的过期时间
+        TOKEN_EXPIRY = datetime.datetime.now() + TOKEN_EXPIRY_DELTA
     try:
         post_data = {
             "page": 1,
