@@ -11,7 +11,7 @@ import requests
 import yaml
 from telegram import Bot
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, get_auth_token, encrypt
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +36,7 @@ BARK_EXTRA = ""
 
 # 读取YAML配置文件并设置全局变量
 def read_config_from_yaml():
-    global CHANNEL_ID, TELEGRAM_BOT_TOKEN,  \
+    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, \
         CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD, GITHUB, BARK_EXTRA, BARK_URL
     current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
     config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
@@ -62,7 +62,7 @@ MESSAGE = ""
 AUTH_TOKEN = ""
 NEW_DATE = ""
 TOKEN_TIMESTAMP = None
-TOKEN_EXPIRY_DELTA = datetime.timedelta(hours=1, minutes=30) 
+TOKEN_EXPIRY_DELTA = datetime.timedelta(hours=1, minutes=30)
 
 # 配置常量
 EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483', '7488', '7493', '7498', '7503',
@@ -144,6 +144,7 @@ async def send_seat_result_to_channel():
         logger.info(f"发送消息到 Telegram 失败，你应该没有填写 token 和 id")
         return e
 
+
 def get_auth_token(username, password):
     global TOKEN_TIMESTAMP
     try:
@@ -162,7 +163,6 @@ def get_auth_token(username, password):
             return new_token
         else:
             logger.info("使用现有授权码")
-            return new_token
     except Exception as e:
         logger.error(f"获取授权码时发生异常: {str(e)}")
         sys.exit()
@@ -170,13 +170,9 @@ def get_auth_token(username, password):
 
 def check_book_status(auth):
     global MESSAGE
-    global TOKEN_EXPIRY
+    global AUTH_TOKEN
     # 检查 Token 是否过期
-    if datetime.datetime.now() > TOKEN_EXPIRY:
-        # Token 已过期，重新获取
-        AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
-        # 更新 Token 的过期时间
-        TOKEN_EXPIRY = datetime.datetime.now() + TOKEN_EXPIRY_DELTA
+    AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
     try:
         post_data = {
             "page": 1,

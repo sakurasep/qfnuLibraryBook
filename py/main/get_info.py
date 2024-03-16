@@ -9,8 +9,6 @@ import requests
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import pad, unpad
 
-from get_bearer_token import get_bearer_token
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("开始打印日志")
 
@@ -147,23 +145,6 @@ def get_key():
     # print("密钥:", key)
 
     return key
-
-
-# 获取授权码
-def get_auth_token(username, password):
-    try:
-        # 如果未从配置文件中读取到用户名或密码，则抛出异常
-        if not username or not password:
-            raise ValueError("未找到用户名或密码")
-
-        # 调用获取授权码的函数，使用从配置文件中读取到的用户名和密码
-        name, token = get_bearer_token(username, password)
-        logger.info(f"成功登录")
-        new_token = "bearer" + str(token)
-        return new_token
-    except Exception as e:
-        logger.error(f"获取授权码时发生异常: {str(e)}")
-        sys.exit()
 
 
 # 加密函数
