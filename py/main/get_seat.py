@@ -146,7 +146,7 @@ async def send_seat_result_to_channel():
 
 
 def get_auth_token(username, password):
-    global TOKEN_TIMESTAMP
+    global TOKEN_TIMESTAMP, AUTH_TOKEN
     try:
         # 如果未从配置文件中读取到用户名或密码，则抛出异常
         if not username or not password:
@@ -157,10 +157,9 @@ def get_auth_token(username, password):
             # Token 过期或尚未获取，重新获取
             name, token = get_bearer_token(username, password)
             logger.info(f"成功获取授权码")
-            new_token = "bearer" + str(token)
+            AUTH_TOKEN = "bearer" + str(token)
             # 更新 Token 的时间戳
             TOKEN_TIMESTAMP = datetime.datetime.now()
-            return new_token
         else:
             logger.info("使用现有授权码")
     except Exception as e:
@@ -168,16 +167,17 @@ def get_auth_token(username, password):
         sys.exit()
 
 
-def check_book_status(auth):
+def check_book_status():
     global MESSAGE
     global AUTH_TOKEN
     # 检查 Token 是否过期
-    AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
+    get_auth_token(USERNAME, PASSWORD)
+    # logger.info(AUTH_TOKEN)
     try:
         post_data = {
             "page": 1,
             "limit": 3,
-            "authorization": auth
+            "authorization": AUTH_TOKEN
         }
         request_headers = {
             "Content-Type": "application/json",
@@ -192,7 +192,7 @@ def check_book_status(auth):
             "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
             "Accept-Encoding": "gzip, deflate",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-            "Authorization": auth
+            "Authorization": AUTH_TOKEN
         }
         res = send_post_request_and_save_response(URL_CHECK_STATUS, post_data, request_headers)
         # logger.info(res)
@@ -219,9 +219,9 @@ def check_book_status(auth):
 
 
 # 状态检测函数
-def check_reservation_status(auth_token):
+def check_reservation_status():
     global SEAT_RESULT, FLAG, MESSAGE
-    check_book_status(auth_token)
+    check_book_status()
     # 状态信息检测
     if 'msg' in SEAT_RESULT:
         status = SEAT_RESULT['msg']
@@ -278,7 +278,7 @@ def check_reservation_status(auth_token):
 
 
 # 预约函数
-def post_to_get_seat(select_id, segment, auth):
+def post_to_get_seat(select_id, segment):
     # 定义全局变量
     global SEAT_RESULT
     # 原始数据
@@ -312,7 +312,7 @@ def post_to_get_seat(select_id, segment, auth):
         "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
         "Accept-Encoding": "gzip, deflate",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-        "Authorization": auth
+        "Authorization": AUTH_TOKEN
     }
 
     # 发送POST请求并获取响应
@@ -333,7 +333,7 @@ def random_get_seat(data):
 
 
 # 选座主要逻辑
-def select_seat(auth, build_id, segment, nowday):
+def select_seat(build_id, segment, nowday):
     # 初始化
     try:
         while not FLAG:
@@ -345,29 +345,29 @@ def select_seat(auth, build_id, segment, nowday):
                 # logger.info(new_data)
                 # 检查返回的列表是否为空
                 if not new_data:
-                    logger.info("无可用座位, 程序将 1s 后再次获取")
+                    # logger.info("无可用座位, 程序将 1s 后再次获取")
                     time.sleep(1)
                     continue
                 else:
                     select_id = random_get_seat(new_data)
-                    check_reservation_status(auth)
-                    post_to_get_seat(select_id, segment, auth)
+                    check_reservation_status()
+                    post_to_get_seat(select_id, segment)
             # 指定逻辑
             elif MODE == "2":
                 logger.info(f"你选定的座位为: {SEAT_ID}")
-                post_to_get_seat(SEAT_ID, segment, auth)
-                check_reservation_status(auth)
+                post_to_get_seat(SEAT_ID, segment)
+                check_reservation_status()
             # 默认逻辑
             elif MODE == "3":
                 # 检查返回的列表是否为空
                 if not data:
-                    logger.info("无可用座位, 程序将 3s 后再次获取")
+                    # logger.info("无可用座位, 程序将 3s 后再次获取")
                     time.sleep(3)
                     continue
                 else:
                     select_id = random_get_seat(data)
-                    post_to_get_seat(select_id, segment, auth)
-                    check_reservation_status(auth)
+                    post_to_get_seat(select_id, segment)
+                    check_reservation_status()
             else:
                 logger.error(f"未知的模式: {MODE}")
 
@@ -378,7 +378,7 @@ def select_seat(auth, build_id, segment, nowday):
 def process_classroom(classroom_name):
     build_id = get_build_id(classroom_name)
     segment = get_segment(build_id, NEW_DATE)
-    select_seat(AUTH_TOKEN, build_id, segment, NEW_DATE)
+    select_seat(build_id, segment, NEW_DATE)
 
 
 # 主函数
@@ -417,8 +417,7 @@ def get_info_and_select_seat():
         # 默认逻辑
         logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
-        AUTH_TOKEN = get_auth_token(USERNAME, PASSWORD)
-        check_book_status(AUTH_TOKEN)
+        check_book_status()
 
         # 多线程执行程序
         with concurrent.futures.ThreadPoolExecutor() as executor:
