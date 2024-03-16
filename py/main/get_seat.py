@@ -100,7 +100,7 @@ def send_post_request_and_save_response(url, data, headers):
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            response = requests.post(url, json=data, headers=headers, timeout=25)
+            response = requests.post(url, json=data, headers=headers, timeout=60)
             response.raise_for_status()
             response_data = response.json()
             return response_data
@@ -145,17 +145,17 @@ async def send_seat_result_to_channel():
         return e
 
 
-def get_auth_token(username, password):
+def get_auth_token():
     global TOKEN_TIMESTAMP, AUTH_TOKEN
     try:
         # 如果未从配置文件中读取到用户名或密码，则抛出异常
-        if not username or not password:
+        if not USERNAME or not PASSWORD:
             raise ValueError("未找到用户名或密码")
 
         # 检查 Token 是否过期
         if TOKEN_TIMESTAMP is None or (datetime.datetime.now() - TOKEN_TIMESTAMP) > TOKEN_EXPIRY_DELTA:
             # Token 过期或尚未获取，重新获取
-            name, token = get_bearer_token(username, password)
+            name, token = get_bearer_token(USERNAME, PASSWORD)
             logger.info(f"成功获取授权码")
             AUTH_TOKEN = "bearer" + str(token)
             # 更新 Token 的时间戳
@@ -170,9 +170,6 @@ def get_auth_token(username, password):
 def check_book_status():
     global MESSAGE
     global AUTH_TOKEN
-    # 检查 Token 是否过期
-    get_auth_token(USERNAME, PASSWORD)
-    # logger.info(AUTH_TOKEN)
     try:
         post_data = {
             "page": 1,
@@ -210,18 +207,15 @@ def check_book_status():
                 asyncio.run(send_seat_result_to_channel())
                 # 发送中断信号停止整个程序
                 sys.exit()
+        time.sleep(60)
     except KeyError:
-        logger.error("数据获取失败")
-        MESSAGE += "\n数据获取失败"
-        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-        asyncio.run(send_seat_result_to_channel())
-        sys.exit()
+        logger.error("数据获取失败, Token 失效，重新获取")
+        get_auth_token()
 
 
 # 状态检测函数
 def check_reservation_status():
     global SEAT_RESULT, FLAG, MESSAGE
-    check_book_status()
     # 状态信息检测
     if 'msg' in SEAT_RESULT:
         status = SEAT_RESULT['msg']
@@ -240,19 +234,12 @@ def check_reservation_status():
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
         elif status == "开放预约时间19:20":
-            logger.info("未到预约时间")
-            MESSAGE += f"\n预约状态为:{status}"
-            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-            asyncio.run(send_seat_result_to_channel())
+            logger.info("未到预约时间, 3s 后重试")
             # 理论来说是到不了这一句的
-            time.sleep(5)
+            time.sleep(3)
         elif status == "您尚未登录":
-            logger.info("没有登录，请检查是否正确获取了 token")
-            MESSAGE += f"\n预约状态为:{status}"
-            MESSAGE += "\n没有登录，请检查是否正确获取了 token"
-            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-            asyncio.run(send_seat_result_to_channel())
-            sys.exit()
+            logger.info("没有登录，将重新尝试获取 token")
+            get_auth_token()
         elif status == "该空间当前状态不可预约":
             logger.info("此位置已被预约")
             if MODE == "2":
@@ -270,11 +257,8 @@ def check_reservation_status():
             asyncio.run(send_seat_result_to_channel())
             sys.exit()
     else:
-        logger.error("没有获取到状态信息，token已过期")
-        MESSAGE += "\n没有获取到状态信息，token已过期"
-        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-        asyncio.run(send_seat_result_to_channel())
-        sys.exit()
+        logger.error("没有获取到状态信息，token已过期, 重新获取 token")
+        get_auth_token()
 
 
 # 预约函数
@@ -350,8 +334,8 @@ def select_seat(build_id, segment, nowday):
                     continue
                 else:
                     select_id = random_get_seat(new_data)
-                    check_reservation_status()
                     post_to_get_seat(select_id, segment)
+                    check_reservation_status()
             # 指定逻辑
             elif MODE == "2":
                 logger.info(f"你选定的座位为: {SEAT_ID}")
@@ -414,19 +398,25 @@ def get_info_and_select_seat():
                 else:
                     break
 
-        # 默认逻辑
-        logger.info(CLASSROOMS_NAME)
+        # logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
-        check_book_status()
-
+        get_auth_token()
         # 多线程执行程序
         with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = {executor.submit(process_classroom, name): name for name in CLASSROOMS_NAME}
-            # 等待任一线程完成
-            done, not_done = concurrent.futures.wait(futures, return_when=concurrent.futures.FIRST_COMPLETED)
-            # 取消尚未完成的线程
-            for future in not_done:
-                future.cancel()
+            # 存储所有子线程的 Future 对象
+            futures = []
+            # future_first = executor.submit(get_auth_token)
+            # futures.append(future_first)
+            future_second = executor.submit(check_book_status)
+            futures.append(future_second)
+            # 并发启动多个子线程
+            for name in CLASSROOMS_NAME:
+                logger.info(name)
+                future_third = executor.submit(process_classroom, name)
+                futures.append(future_third)
+
+            # 等待所有子线程完成
+            concurrent.futures.wait(futures)
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
