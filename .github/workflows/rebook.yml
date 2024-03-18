@@ -1,0 +1,46 @@
+name: 重新预约此位置
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 安装 Python 3.12
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.12.0'
+        architecture: 'x64'
+
+    - name: 检查 Python 版本
+      run: python --version
+
+    - name: 检出仓库代码到工作区
+      uses: actions/checkout@v2
+      
+
+    - name: 应用环境变量
+      uses: microsoft/variable-substitution@v1
+      with:
+        files: 'py/main/config.yml'  # 注意文件路径
+      env:
+        CHANNEL_ID: ${{ secrets.CHANNEL_ID }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        USERNAME: ${{ secrets.USERNAME }}
+        PASSWORD: ${{ secrets.PASSWORD }}
+        BARK_URL: ${{ secrets.BARK_URL }}
+        MODE: "5"
+        DATE: "today"
+
+    # - name: 显示配置 YAML
+    #   run: cat py/main/config.yml
+
+    - name: 安装所需依赖
+      run: |
+        pip install -r py/main/requirements.txt
+
+    - name: 运行 Python 脚本
+      run: |
+        python py/main/get_seat.py

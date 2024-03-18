@@ -11,14 +11,15 @@ import requests
 import yaml
 from telegram import Bot
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 URL_GET_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/confirm"
-URL_CHECK_STATUS = "http://libyy.qfnu.edu.cn/api/Member/seat"
+URL_CHECK_OUT = "http://libyy.qfnu.edu.cn/api/Space/checkout"
+URL_CANCEL_SEAT = "http://libyy.qfnu.edu.cn/api/Space/cancel"
 
 # 配置文件
 CHANNEL_ID = ""
@@ -73,6 +74,21 @@ EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7
               '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175', '7180', '7185',
               '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7761', '7764', '7767', '7770',
               '7773', '7776', '7779', '7782'}
+REQUEST_HEADERS = {
+    "Content-Type": "application/json",
+    "Connection": "keep-alive",
+    "Accept": "application/json, text/plain, */*",
+    "lang": "zh",
+    "X-Requested-With": "XMLHttpRequest",
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
+                  "like Gecko)"
+                  "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+    "Origin": "http://libyy.qfnu.edu.cn",
+    "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
+    "Accept-Encoding": "gzip, deflate",
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
+    "Authorization": AUTH_TOKEN
+}
 MAX_RETRIES = 200  # 最大重试次数
 
 
@@ -167,50 +183,25 @@ def get_auth_token():
         sys.exit()
 
 
-def check_book_status():
+# 检查是否存在已经预约的座位
+def check_book_seat():
     global MESSAGE
-    global AUTH_TOKEN
-    try:
-        post_data = {
-            "page": 1,
-            "limit": 3,
-            "authorization": AUTH_TOKEN
-        }
-        request_headers = {
-            "Content-Type": "application/json",
-            "Connection": "keep-alive",
-            "Accept": "application/json, text/plain, */*",
-            "lang": "zh",
-            "X-Requested-With": "XMLHttpRequest",
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                          "like Gecko)"
-                          "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-            "Origin": "http://libyy.qfnu.edu.cn",
-            "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
-            "Accept-Encoding": "gzip, deflate",
-            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-            "Authorization": AUTH_TOKEN
-        }
-        res = send_post_request_and_save_response(URL_CHECK_STATUS, post_data, request_headers)
-        # logger.info(res)
-        for entry in res["data"]["data"]:
-            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
-                logger.info("存在已经预约的座位")
-                MESSAGE += "\n存在已经预约的座位"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                sys.exit()
-            elif entry["statusName"] == "使用中" and DATE == "today":
-                logger.info("存在正在使用的座位")
-                MESSAGE += "\n存在正在使用的座位"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                # 发送中断信号停止整个程序
-                sys.exit()
-        time.sleep(60)
-    except KeyError:
-        logger.error("数据获取失败, Token 失效，重新获取")
-        get_auth_token()
+    res = get_member_seat(AUTH_TOKEN)
+    for entry in res["data"]["data"]:
+        if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+            logger.info("存在已经预约的座位")
+            MESSAGE += "\n存在已经预约的座位"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
+            sys.exit()
+        elif entry["statusName"] == "使用中" and DATE == "today":
+            logger.info("存在正在使用的座位")
+            MESSAGE += "\n存在正在使用的座位"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
+            # 发送中断信号停止整个程序
+            sys.exit()
+    time.sleep(60)
 
 
 # 状态检测函数
@@ -283,24 +274,8 @@ def post_to_get_seat(select_id, segment):
         "aesjson": aes_data,
     }
 
-    request_headers = {
-        "Content-Type": "application/json",
-        "Connection": "keep-alive",
-        "Accept": "application/json, text/plain, */*",
-        "lang": "zh",
-        "X-Requested-With": "XMLHttpRequest",
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                      "like Gecko)"
-                      "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
-        "Origin": "http://libyy.qfnu.edu.cn",
-        "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
-        "Accept-Encoding": "gzip, deflate",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-        "Authorization": AUTH_TOKEN
-    }
-
     # 发送POST请求并获取响应
-    SEAT_RESULT = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
+    SEAT_RESULT = send_post_request_and_save_response(URL_GET_SEAT, post_data, REQUEST_HEADERS)
 
 
 # 随机获取座位
@@ -359,6 +334,83 @@ def select_seat(build_id, segment, nowday):
         logger.info(f"接收到中断信号，程序将退出。")
 
 
+# 取消座位预约（慎用！！！）
+def cancel_seat(seat_id):
+    global SEAT_RESULT
+    try:
+        post_data = {
+            "id": seat_id,
+            "authorization": AUTH_TOKEN
+        }
+        SEAT_RESULT = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, REQUEST_HEADERS)
+        logger.info(SEAT_RESULT)
+    except KeyError:
+        logger.info("数据解析错误")
+
+
+# 延长预约时间半小时
+def rebook_seat_or_checkout():
+    global MESSAGE
+    try:
+        res = get_member_seat(AUTH_TOKEN)
+        logger.info(res)
+        if res is None:
+            get_auth_token()
+            res = get_member_seat(AUTH_TOKEN)
+        if res is not None:
+            seat_id = None  # 初始化为None
+            # 签退，寻找正在使用的座位
+            if MODE == "4":
+                for item in res["data"]["data"]:
+                    if item["statusName"] == "使用中":
+                        seat_id = item["id"]  # 找到使用中的座位
+                        break  # 找到座位后退出循环
+            # 延长半小时，寻找已预约的座位
+            if MODE == "5":
+                for item in res["data"]["data"]:
+                    if item["statusName"] == "已预约":
+                        id = item["id"]  # 获取 id
+                        space = item["space"]  # 获取 seat_id
+                        name_merge = item["nameMerge"]  # 获取名称（nameMerge）
+                        name_merge = name_merge.split('-', 1)[-1]
+                        build_id = get_build_id(name_merge)
+                        segment = get_segment(build_id, NEW_DATE)
+                        cancel_seat(id)
+                        post_to_get_seat(space, segment)
+
+            if seat_id is not None:  # 确保 seat_id 不为空
+                post_data = {
+                    "id": seat_id,
+                    "authorization": AUTH_TOKEN
+                }
+
+                send_post_request_and_save_response(URL_CHECK_OUT, post_data, REQUEST_HEADERS)
+
+                res = get_member_seat(AUTH_TOKEN)
+                for item in res["data"]:
+                    if item["id"] == seat_id:
+                        status = item["statusName"]
+                        break  # 找到对应座位后退出循环
+                else:
+                    logger.error("没有找到正在使用的座位，今天你可能没有预约座位")
+                    MESSAGE += "\n没有找到正在使用的座位，今天你可能没有预约座位"
+                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                    asyncio.run(send_seat_result_to_channel())
+                    sys.exit()
+
+                if status == "已使用":
+                    logger.info("恭喜签退成功")
+                    MESSAGE += "\n恭喜签退成功"
+                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                    asyncio.run(send_seat_result_to_channel())
+                    sys.exit()
+
+    except KeyError:
+        logger.error("返回数据与规则不符，大概率是没有登录")
+        get_auth_token()
+        rebook_seat_or_checkout()
+
+
 def process_classroom(classroom_name):
     build_id = get_build_id(classroom_name)
     segment = get_segment(build_id, NEW_DATE)
@@ -407,7 +459,7 @@ def get_info_and_select_seat():
             futures = []
             # future_first = executor.submit(get_auth_token)
             # futures.append(future_first)
-            future_second = executor.submit(check_book_status)
+            future_second = executor.submit(check_book_seat)
             futures.append(future_second)
             # 并发启动多个子线程
             for name in CLASSROOMS_NAME:
@@ -426,7 +478,10 @@ if __name__ == "__main__":
     try:
         read_config_from_yaml()
         # print_variables()
-        get_info_and_select_seat()
+        if MODE == "4" or MODE == "5":
+            rebook_seat_or_checkout()
+        else:
+            get_info_and_select_seat()
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")

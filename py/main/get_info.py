@@ -37,7 +37,9 @@ classroom_id_mapping = {
 # 常量定义
 URL_CLASSROOM_DETAIL_INFO = "http://libyy.qfnu.edu.cn/api/Seat/date"
 URL_CLASSROOM_SEAT = "http://libyy.qfnu.edu.cn/api/Seat/seat"
-MAX_RETRIES = 10  # 最大重试次数
+URL_CHECK_STATUS = "http://libyy.qfnu.edu.cn/api/Member/seat"
+
+MAX_RETRIES = 100  # 最大重试次数
 RETRY_DELAY = 3  # 重试间隔时间(秒)
 
 
@@ -184,6 +186,37 @@ def decrypt(ciphertext):
     decrypted_text = unpad(decrypted_bytes, AES.block_size).decode('utf-8')
 
     return decrypted_text
+
+
+def get_member_seat(auth):
+    try:
+        post_data = {
+            "page": 1,
+            "limit": 1,
+            "authorization": auth
+        }
+        request_headers = {
+            "Content-Type": "application/json",
+            "Connection": "keep-alive",
+            "Accept": "application/json, text/plain, */*",
+            "lang": "zh",
+            "X-Requested-With": "XMLHttpRequest",
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
+                          "like Gecko)"
+                          "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "Origin": "http://libyy.qfnu.edu.cn",
+            "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
+            "Accept-Encoding": "gzip, deflate",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
+            "Authorization": auth
+        }
+        res = send_post_request_and_save_response(URL_CHECK_STATUS, post_data, request_headers)
+        return res
+        # logger.info(res)
+
+    except KeyError:
+        logger.error("数据获取失败, Token 失效，重新获取")
+        return None
 
 
 def get_seat_info(build_id, segment, nowday):
