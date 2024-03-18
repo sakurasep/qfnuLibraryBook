@@ -192,7 +192,7 @@ def get_member_seat(auth):
     try:
         post_data = {
             "page": 1,
-            "limit": 1,
+            "limit": 3,
             "authorization": auth
         }
         request_headers = {
