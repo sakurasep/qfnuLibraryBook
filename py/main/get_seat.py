@@ -185,7 +185,7 @@ def get_auth_token():
 
 # 检查是否存在已经预约的座位
 def check_book_seat():
-    global MESSAGE
+    global MESSAGE, FLAG
     res = get_member_seat(AUTH_TOKEN)
     for entry in res["data"]["data"]:
         if entry["statusName"] == "预约成功" and DATE == "tomorrow":
@@ -193,15 +193,16 @@ def check_book_seat():
             MESSAGE += "\n存在已经预约的座位"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
+            FLAG = True
             sys.exit()
         elif entry["statusName"] == "使用中" and DATE == "today":
             logger.info("存在正在使用的座位")
             MESSAGE += "\n存在正在使用的座位"
             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
             asyncio.run(send_seat_result_to_channel())
-            # 发送中断信号停止整个程序
+            FLAG = True
             sys.exit()
-    time.sleep(60)
+    time.sleep(10)
 
 
 # 状态检测函数
@@ -368,14 +369,14 @@ def rebook_seat_or_checkout():
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
                 for item in res["data"]["data"]:
-                    if item["statusName"] == "已预约":
-                        id = item["id"]  # 获取 id
+                    if item["statusName"] == "预约成功":
+                        ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
                         name_merge = name_merge.split('-', 1)[-1]
                         build_id = get_build_id(name_merge)
                         segment = get_segment(build_id, NEW_DATE)
-                        cancel_seat(id)
+                        cancel_seat(ids)
                         post_to_get_seat(space, segment)
 
             if seat_id is not None:  # 确保 seat_id 不为空
