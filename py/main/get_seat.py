@@ -349,11 +349,27 @@ def cancel_seat(seat_id):
 def rebook_seat_or_checkout():
     global MESSAGE
     try:
+        NEW_DATE = get_date(DATE)
         get_auth_token()
         res = get_member_seat(AUTH_TOKEN)
         logger.info(res)
         if res is not None:
             seat_id = None  # 初始化为None
+            # 延长半小时，寻找已预约的座位
+            if MODE == "5":
+                # logger.info("test")
+                for item in res["data"]["data"]:
+                    if item["statusName"] == "预约开始提醒":
+                        ids = item["id"]  # 获取 id
+                        space = item["space"]  # 获取 seat_id
+                        name_merge = item["nameMerge"]  # 获取名称（nameMerge）
+                        logger.info(f"id:{ids}\nseat:{space}\nname:{name_merge}\n")
+                        name_merge = name_merge.split('-', 1)[-1]
+                        build_id = get_build_id(name_merge)
+                        segment = get_segment(build_id, NEW_DATE)
+                        logger.info(f"buildid:{build_id}\nsegment:{segment}\n")
+                        cancel_seat(ids)
+                        post_to_get_seat(space, segment)
             # 签退，寻找正在使用的座位
             if MODE == "4":
                 for item in res["data"]["data"]:
@@ -400,18 +416,7 @@ def rebook_seat_or_checkout():
                     send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                     asyncio.run(send_seat_result_to_channel())
                     sys.exit()
-            # 延长半小时，寻找已预约的座位
-            if MODE == "5":
-                for item in res["data"]["data"]:
-                    if item["statusName"] == "预约成功":
-                        ids = item["id"]  # 获取 id
-                        space = item["space"]  # 获取 seat_id
-                        name_merge = item["nameMerge"]  # 获取名称（nameMerge）
-                        name_merge = name_merge.split('-', 1)[-1]
-                        build_id = get_build_id(name_merge)
-                        segment = get_segment(build_id, NEW_DATE)
-                        cancel_seat(ids)
-                        post_to_get_seat(space, segment)
+
 
     except KeyError:
         logger.error("返回数据与规则不符，大概率是没有登录")
