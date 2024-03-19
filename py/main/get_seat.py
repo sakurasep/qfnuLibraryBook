@@ -12,7 +12,7 @@ import yaml
 from telegram import Bot
 
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat, decrypt
 
 # 配置日志
 logger = logging.getLogger("httpx")
@@ -69,14 +69,14 @@ TOKEN_TIMESTAMP = None
 TOKEN_EXPIRY_DELTA = datetime.timedelta(hours=1, minutes=30)
 
 # 配置常量
-EXCLUDE_ID = {'7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483', '7488', '7493', '7498', '7503',
-              '7508', '7513', '7518', '7572', '7575', '7578', '7581', '7584', '7587', '7590', '7785', '7788', '7791',
-              '7794', '7797', '7800', '7803', '7806', '7291', '7296', '7301', '7306', '7311', '7316', '7321', '7326',
-              '7331', '7336', '7341', '7346', '7351', '7356', '7361', '7366', '7369', '7372', '7375', '7378', '7381',
-              '7384', '7387', '7390', '7417', '7420', '7423', '7426', '7429', '7432', '7435', '7438', '7115', '7120',
-              '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175', '7180', '7185',
-              '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7761', '7764', '7767', '7770',
-              '7773', '7776', '7779', '7782'}
+EXCLUDE_ID = {'7115', '7120', '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175',
+              '7180', '7185', '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7291', '7296',
+              '7301', '7306', '7311', '7316', '7321', '7326', '7331', '7336', '7341', '7346', '7351', '7356', '7361',
+              '7366', '7369', '7372', '7375', '7378', '7381', '7384', '7387', '7390', '7417', '7420', '7423', '7426',
+              '7429', '7432', '7435', '7438', '7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483',
+              '7488', '7493', '7498', '7503', '7508', '7513', '7518', '7569', '7572', '7575', '7578', '7581', '7584',
+              '7587', '7590', '7761', '7764', '7767', '7770', '7773', '7776', '7779', '7782', '7785', '7788', '7791',
+              '7794', '7797', '7800', '7803', '7806'}
 
 MAX_RETRIES = 200  # 最大重试次数
 
@@ -145,6 +145,7 @@ async def send_seat_result_to_channel():
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
         # logger.info(f"要发送的消息为： {MESSAGE}\n")
         await bot.send_message(chat_id=CHANNEL_ID, text=MESSAGE)
+        logger.info("成功推送消息到 Telegram")
     except Exception as e:
         logger.info(f"发送消息到 Telegram 失败, 可能是没有设置此通知方式，也可能是没有连接到 Telegram")
         return e
@@ -176,16 +177,20 @@ def get_auth_token():
 def check_book_seat():
     global MESSAGE, FLAG
     try:
-        while not FLAG:
-            res = get_member_seat(AUTH_TOKEN)
-            for entry in res["data"]["data"]:
-                if entry["statusName"] == "预约成功" and DATE == "tomorrow":
-                    logger.info("存在已经预约的座位")
-                    FLAG = True
-                elif entry["statusName"] == "使用中" and DATE == "today":
-                    logger.info("存在正在使用的座位")
-                    FLAG = True
-            time.sleep(1)
+        res = get_member_seat(AUTH_TOKEN)
+        for entry in res["data"]["data"]:
+            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+                logger.info("存在已经预约的座位")
+                seat_id = entry["name"]
+                name = entry["nameMerge"]
+                MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
+                FLAG = True
+            elif entry["statusName"] == "使用中" and DATE == "today":
+                logger.info("存在正在使用的座位")
+                FLAG = True
+        return False
     # todo 未遇到此错误
     except KeyError:
         logger.error("数据解析错误")
@@ -193,45 +198,41 @@ def check_book_seat():
 
 
 # 状态检测函数
-def check_reservation_status(seat_result):
+def check_reservation_status():
     global FLAG, MESSAGE
-    try:
-        while not FLAG:
-            # 状态信息检测
-            if 'msg' in seat_result:
-                status = seat_result['msg']
-                logger.info(status)
-                if status == "当前时段存在预约，不可重复预约!":
-                    logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+    while not FLAG:
+        # 状态信息检测
+        status = SEAT_RESULT['msg']
+        logger.info(status)
+        if status is not None:
+            if status == "当前时段存在预约，不可重复预约!":
+                logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+                FLAG = True
+            elif status == "预约成功":
+                logger.info("成功预约")
+                check_book_seat()
+                FLAG = True
+            elif status == "开放预约时间19:20":
+                logger.info("未到预约时间, 3s 后重试")
+                time.sleep(3)
+            elif status == "您尚未登录":
+                logger.info("没有登录，将重新尝试获取 token")
+                get_auth_token()
+            elif status == "该空间当前状态不可预约":
+                logger.info("此位置已被预约")
+                if MODE == "2":
+                    logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
                     FLAG = True
-                elif status == "预约成功":
-                    logger.info("成功预约")
-                    seat = seat_result['seat']
-                    MESSAGE += f"\n{status}\n 预约的座位是:{seat}"
-                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                    asyncio.run(send_seat_result_to_channel())
-                    FLAG = True
-                elif status == "开放预约时间19:20":
-                    logger.info("未到预约时间, 3s 后重试")
-                    time.sleep(3)
-                elif status == "您尚未登录":
-                    logger.info("没有登录，将重新尝试获取 token")
-                    get_auth_token()
-                elif status == "该空间当前状态不可预约":
-                    logger.info("此位置已被预约")
-                    if MODE == "2":
-                        logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
-                        FLAG = True
-                    else:
-                        logger.info(f"选定座位已被预约，重新选定")
-    # todo 没有出现此错误
-    except KeyError:
-        logger.error("没有获取到状态信息，token已过期, 重新获取 token")
-        get_auth_token()
+                else:
+                    logger.info(f"选定座位已被预约，重新选定")
+            elif status == "取消成功":
+                logger.info("取消成功")
+                sys.exit()
 
 
 # 预约函数
 def post_to_get_seat(select_id, segment):
+    global SEAT_RESULT
     # 原始数据
     origin_data = '{{"seat_id":"{}","segment":"{}"}}'.format(select_id, segment)
     # logger.info(origin_data)
@@ -265,8 +266,8 @@ def post_to_get_seat(select_id, segment):
         "Authorization": AUTH_TOKEN
     }
     # 发送POST请求并获取响应
-    seat_result = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
-    check_reservation_status(seat_result)
+    SEAT_RESULT = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
+    check_reservation_status()
 
 
 # 随机获取座位
@@ -299,6 +300,8 @@ def select_seat(build_id, segment, nowday):
                     continue
                 else:
                     select_id = random_get_seat(new_data)
+                    # 请求 confirm, 为了避免请求过快出现多次产生错误的预约成功
+                    time.sleep(1)
                     post_to_get_seat(select_id, segment)
             # 指定逻辑
             elif MODE == "2":
@@ -323,6 +326,7 @@ def select_seat(build_id, segment, nowday):
 
 # 取消座位预约（慎用！！！）
 def cancel_seat(seat_id):
+    global SEAT_RESULT
     try:
         post_data = {
             "id": seat_id,
@@ -343,8 +347,7 @@ def cancel_seat(seat_id):
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
             "Authorization": AUTH_TOKEN
         }
-        seat_result = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
-        # logger.info(seat_result)
+        SEAT_RESULT = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
     except KeyError:
         logger.info("数据解析错误")
 
@@ -480,10 +483,6 @@ def get_info_and_select_seat():
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # 存储所有子线程的 Future 对象
             futures = []
-            future_first = executor.submit(check_reservation_status)
-            futures.append(future_first)
-            future_second = executor.submit(check_book_seat)
-            futures.append(future_second)
             # 并发启动多个子线程
             for name in CLASSROOMS_NAME:
                 # logger.info(name)
