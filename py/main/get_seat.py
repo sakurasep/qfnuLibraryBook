@@ -10,10 +10,13 @@ import time
 import requests
 import yaml
 from telegram import Bot
+
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat, decrypt
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat
 
 # 配置日志
+logger = logging.getLogger("httpx")
+logger.setLevel(logging.ERROR)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -203,7 +206,8 @@ def check_reservation_status(seat_result):
                     FLAG = True
                 elif status == "预约成功":
                     logger.info("成功预约")
-                    MESSAGE += f"\n预约状态为:{seat_result}"
+                    seat = seat_result['seat']
+                    MESSAGE += f"\n{status}\n 预约的座位是:{seat}"
                     send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                     asyncio.run(send_seat_result_to_channel())
                     FLAG = True
@@ -340,7 +344,7 @@ def cancel_seat(seat_id):
             "Authorization": AUTH_TOKEN
         }
         seat_result = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
-        logger.info(seat_result)
+        # logger.info(seat_result)
     except KeyError:
         logger.info("数据解析错误")
 
@@ -349,12 +353,10 @@ def cancel_seat(seat_id):
 def rebook_seat_or_checkout():
     global MESSAGE
     try:
-        NEW_DATE = get_date(DATE)
         get_auth_token()
         res = get_member_seat(AUTH_TOKEN)
-        logger.info(res)
+        # logger.info(res)
         if res is not None:
-            seat_id = None  # 初始化为None
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
                 # logger.info("test")
@@ -363,20 +365,25 @@ def rebook_seat_or_checkout():
                         ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
-                        logger.info(f"id:{ids}\nseat:{space}\nname:{name_merge}\n")
                         name_merge = name_merge.split('-', 1)[-1]
                         build_id = get_build_id(name_merge)
                         segment = get_segment(build_id, NEW_DATE)
-                        logger.info(f"buildid:{build_id}\nsegment:{segment}\n")
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
+                    else:
+                        logger.error("没有找到已经预约的座位，你可能没有预约座位")
+                        MESSAGE += "\n没有找到已经预约的座位，你可能没有预约座位"
+                        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                        asyncio.run(send_seat_result_to_channel())
+                        sys.exit()
             # 签退，寻找正在使用的座位
             if MODE == "4":
+                seat_id = None  # 初始化为None
                 for item in res["data"]["data"]:
                     if item["statusName"] == "使用中":
                         seat_id = item["id"]  # 找到使用中的座位
-                        logger.info("test")
-                        logger.info(seat_id)
+                        # logger.info("test")
+                        # logger.info(seat_id)
                         break  # 找到座位后退出循环
 
                 if seat_id is not None:  # 确保 seat_id 不为空
@@ -416,7 +423,10 @@ def rebook_seat_or_checkout():
                     send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                     asyncio.run(send_seat_result_to_channel())
                     sys.exit()
-
+        # todo 没有遇到此错误
+        else:
+            logger.error("获取数据失败，请检查登录状态")
+            sys.exit()
 
     except KeyError:
         logger.error("返回数据与规则不符，大概率是没有登录")
@@ -492,6 +502,7 @@ if __name__ == "__main__":
         read_config_from_yaml()
         # print_variables()
         if MODE == "4" or MODE == "5":
+            NEW_DATE = get_date(DATE)
             rebook_seat_or_checkout()
         else:
             get_info_and_select_seat()
