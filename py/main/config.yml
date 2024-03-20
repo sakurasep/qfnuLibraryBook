@@ -1,11 +1,14 @@
 # Telegram 相关
 CHANNEL_ID: ""
 TELEGRAM_BOT_TOKEN: ""
-TELEGRAM_URL: "https://telegram.sakurasep.workers.dev/bot"
 
 # Bark 相关
 BARK_URL: ""
 BARK_EXTRA: "?icon=https://cdn.sakurasep.site/Website/new_avatar_256.png"
+
+# Anpush 相关
+ANPUSH_TOKEN: ""
+ANPUSH_CHANNEL: ""
 
 # 账号授权相关
 USERNAME: ""
@@ -16,11 +19,11 @@ GITHUB: True
 
 # 程序设置
 MODE: "1"
-SEAT_ID: "7440"
-DATE: "today"
+SEAT_ID:
+  - 7520
+  - 7543
+DATE: "tomorrow"
 CLASSROOMS_NAME:
   - 西校区图书馆-五层自习室
   - 西校区图书馆-四层自习室
   - 西校区图书馆-三层自习室
-
-
