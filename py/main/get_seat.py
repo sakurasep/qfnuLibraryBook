@@ -12,7 +12,7 @@ import yaml
 from telegram import Bot
 
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat, decrypt
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat
 
 # 配置日志
 logger = logging.getLogger("httpx")
@@ -50,7 +50,7 @@ def read_config_from_yaml():
         TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
         CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
         MODE = config.get("MODE", "")
-        SEAT_ID = config.get("SEAT_ID", "")
+        SEAT_ID = config.get("SEAT_ID", [])  # 修改此处，将 SEAT_ID 读取为列表
         DATE = config.get("DATE", "")
         USERNAME = config.get('USERNAME', '')
         PASSWORD = config.get('PASSWORD', '')
@@ -62,6 +62,7 @@ def read_config_from_yaml():
 # 在代码的顶部定义全局变量
 FLAG = False
 SEAT_RESULT = {}
+USED_SEAT = []
 MESSAGE = ""
 AUTH_TOKEN = ""
 NEW_DATE = ""
@@ -202,34 +203,41 @@ def check_book_seat():
 # 状态检测函数
 def check_reservation_status():
     global FLAG, MESSAGE
-    while not FLAG:
-        # 状态信息检测
-        status = SEAT_RESULT['msg']
-        logger.info(status)
-        if status is not None:
-            if status == "当前时段存在预约，不可重复预约!":
-                logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
-                FLAG = True
-            elif status == "预约成功":
-                logger.info("成功预约")
-                check_book_seat()
-                FLAG = True
-            elif status == "开放预约时间19:20":
-                logger.info("未到预约时间, 3s 后重试")
-                time.sleep(3)
-            elif status == "您尚未登录":
-                logger.info("没有登录，将重新尝试获取 token")
-                get_auth_token()
-            elif status == "该空间当前状态不可预约":
-                logger.info("此位置已被预约")
-                if MODE == "2":
-                    logger.info("此座位已被预约，请在 config 中修改 SEAT_ID 后重新预约")
-                    FLAG = True
-                else:
-                    logger.info(f"选定座位已被预约，重新选定")
-            elif status == "取消成功":
-                logger.info("取消成功")
-                sys.exit()
+    # 状态信息检测
+    status = SEAT_RESULT['msg']
+    logger.info(status)
+    if status is not None:
+        if status == "当前时段存在预约，不可重复预约!":
+            logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+            FLAG = True
+        elif status == "预约成功":
+            logger.info("成功预约")
+            check_book_seat()
+            FLAG = True
+        elif status == "开放预约时间19:20":
+            logger.info("未到预约时间")
+            time.sleep(1)
+        elif status == "您尚未登录":
+            logger.info("没有登录，将重新尝试获取 token")
+            get_auth_token()
+        elif status == "该空间当前状态不可预约":
+            logger.info("此位置已被预约，重新获取座位")
+        elif status == "取消成功":
+            logger.info("取消成功")
+            sys.exit()
+
+
+def generate_unique_random():
+    global USED_SEAT
+    start = int(SEAT_ID[0])
+    end = int(SEAT_ID[1])
+
+    # 生成范围内的随机整数，直到生成一个未出现过的数
+    while True:
+        random_num = random.randint(start, end)
+        if random_num not in USED_SEAT:
+            USED_SEAT.append(random_num)
+            return random_num
 
 
 # 预约函数
@@ -290,15 +298,15 @@ def select_seat(build_id, segment, nowday):
     try:
         while not FLAG:
             # 获取座位信息
-            data = get_seat_info(build_id, segment, nowday)
             # 优选逻辑
             if MODE == "1":
+                data = get_seat_info(build_id, segment, nowday)
                 new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
                 # logger.info(new_data)
                 # 检查返回的列表是否为空
                 if not new_data:
                     # logger.info("无可用座位, 程序将 1s 后再次获取")
-                    time.sleep(1)
+                    time.sleep(3)
                     continue
                 else:
                     select_id = random_get_seat(new_data)
@@ -307,10 +315,12 @@ def select_seat(build_id, segment, nowday):
                     post_to_get_seat(select_id, segment)
             # 指定逻辑
             elif MODE == "2":
-                # logger.info(f"你选定的座位为: {SEAT_ID}")
-                post_to_get_seat(SEAT_ID, segment)
+                seat_id = generate_unique_random()
+                logger.info(f"你选定的座位为: {seat_id}")
+                post_to_get_seat(seat_id, segment)
             # 默认逻辑
             elif MODE == "3":
+                data = get_seat_info(build_id, segment, nowday)
                 # 检查返回的列表是否为空
                 if not data:
                     # logger.info("无可用座位, 程序将 3s 后再次获取")
@@ -445,39 +455,40 @@ def process_classroom(classroom_name):
     select_seat(build_id, segment, NEW_DATE)
 
 
+def check_time():
+    global MESSAGE
+    if DATE == "tomorrow":
+        while True:
+            # 获取当前时间
+            current_time = datetime.datetime.now()
+            # 如果是 Github Action 环境
+            if GITHUB:
+                current_time += datetime.timedelta(hours=8)
+            # 设置预约时间为19:20
+            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
+            # 计算距离预约时间的秒数
+            time_difference = (reservation_time - current_time).total_seconds()
+            # 打印当前时间和距离预约时间的秒数
+            logger.info(f"当前时间: {current_time}")
+            logger.info(f"距离预约时间还有: {time_difference} 秒")
+            # 如果距离时间过长，自动停止程序
+            if time_difference > 100000:
+                logger.info("距离预约时间过长，程序将自动停止。")
+                MESSAGE += "\n距离预约时间过长，程序将自动停止"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
+                sys.exit()
+            # 如果距离时间在合适的范围内, 将设置等待时间
+            else:
+                # logger.info(f"程序等待{time_difference}秒后启动")
+                # time.sleep(time_difference - 10)
+                get_info_and_select_seat()
+
+
 # 主函数
 def get_info_and_select_seat():
     global AUTH_TOKEN, NEW_DATE, MESSAGE
     try:
-        if DATE == "tomorrow":
-            while True:
-                # 获取当前时间
-                current_time = datetime.datetime.now()
-                # 如果是 Github Action 环境
-                if GITHUB:
-                    current_time += datetime.timedelta(hours=8)
-                # 设置预约时间为19:20
-                reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
-                # 计算距离预约时间的秒数
-                time_difference = (reservation_time - current_time).total_seconds()
-                # 打印当前时间和距离预约时间的秒数
-                logger.info(f"当前时间: {current_time}")
-                logger.info(f"距离预约时间还有: {time_difference} 秒")
-                # 如果距离时间过长，自动停止程序
-                if time_difference > 1000:
-                    logger.info("距离预约时间过长，程序将自动停止。")
-                    MESSAGE += "\n距离预约时间过长，程序将自动停止"
-                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                    asyncio.run(send_seat_result_to_channel())
-                    sys.exit()
-                # 如果距离时间在合适的范围内, 将设置等待时间
-                elif 1000 >= time_difference > 300:
-                    time.sleep(30)
-                elif 300 >= time_difference > 60:
-                    time.sleep(5)
-                else:
-                    break
-
         # logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
         get_auth_token()
@@ -506,7 +517,7 @@ if __name__ == "__main__":
             NEW_DATE = get_date(DATE)
             rebook_seat_or_checkout()
         else:
-            get_info_and_select_seat()
+            check_time()
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
