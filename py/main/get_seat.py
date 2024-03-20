@@ -472,7 +472,7 @@ def check_time():
             logger.info(f"当前时间: {current_time}")
             logger.info(f"距离预约时间还有: {time_difference} 秒")
             # 如果距离时间过长，自动停止程序
-            if time_difference > 100000:
+            if time_difference > 1000:
                 logger.info("距离预约时间过长，程序将自动停止。")
                 MESSAGE += "\n距离预约时间过长，程序将自动停止"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
