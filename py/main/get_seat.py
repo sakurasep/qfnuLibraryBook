@@ -190,7 +190,9 @@ def check_book_seat():
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
                 FLAG = True
-        return False
+            # todo 需要测试 DATA 为 today 的重新预约时的状态信息
+            else:
+                get_info_and_select_seat()
     # todo 未遇到此错误
     except KeyError:
         logger.error("数据解析错误")
