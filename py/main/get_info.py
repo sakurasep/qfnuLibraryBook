@@ -89,7 +89,7 @@ def send_post_request_and_save_response(url, data, headers):
 
 # 获取教室 id
 def get_build_id(classname):
-    logger.info(f"教室名称: {classname}")
+    # logger.info(f"教室名称: {classname}")
     build_id = classroom_id_mapping.get(classname)
     # logger.info(build_id)
     return build_id

@@ -202,23 +202,26 @@ def get_auth_token():
 def check_book_seat():
     global MESSAGE, FLAG
     try:
-        res = get_member_seat(AUTH_TOKEN)
-        for entry in res["data"]["data"]:
-            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
-                logger.info("存在已经预约的座位")
-                seat_id = entry["name"]
-                name = entry["nameMerge"]
-                MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                send_message_anpush()
-                FLAG = True
-            elif entry["statusName"] == "使用中" and DATE == "today":
-                logger.info("存在正在使用的座位")
-                FLAG = True
-            # todo 需要测试 DATA 为 today 的重新预约时的状态信息
-            else:
-                get_info_and_select_seat()
+        while not FLAG:
+            res = get_member_seat(AUTH_TOKEN)
+            for entry in res["data"]["data"]:
+                if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+                    logger.info("存在已经预约的座位")
+                    seat_id = entry["name"]
+                    name = entry["nameMerge"]
+                    MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
+                    # send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                    # asyncio.run(send_seat_result_to_channel())
+                    # send_message_anpush()
+                    FLAG = True
+                    break
+                elif entry["statusName"] == "使用中" and DATE == "today":
+                    logger.info("存在正在使用的座位")
+                    FLAG = True
+                    break
+                else:
+                    logger.error("程序异常")
+                    FLAG = True
     # todo 未遇到此错误
     except KeyError:
         logger.error("数据解析错误")
@@ -237,7 +240,6 @@ def check_reservation_status():
             FLAG = True
         elif status == "预约成功":
             logger.info("成功预约")
-            check_book_seat()
             FLAG = True
         elif status == "开放预约时间19:20":
             logger.info("未到预约时间")
@@ -341,7 +343,7 @@ def select_seat(build_id, segment, nowday):
             # 指定逻辑
             elif MODE == "2":
                 seat_id = generate_unique_random()
-                logger.info(f"你选定的座位为: {seat_id}")
+                # logger.info(f"你选定的座位为: {seat_id}")
                 post_to_get_seat(seat_id, segment)
             # 默认逻辑
             elif MODE == "3":
@@ -486,32 +488,30 @@ def process_classroom(classroom_name):
 def check_time():
     global MESSAGE
     if DATE == "tomorrow":
-        while True:
-            # 获取当前时间
-            current_time = datetime.datetime.now()
-            # 如果是 Github Action 环境
-            if GITHUB:
-                current_time += datetime.timedelta(hours=8)
-            # 设置预约时间为19:20
-            reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
-            # 计算距离预约时间的秒数
-            time_difference = (reservation_time - current_time).total_seconds()
-            # 打印当前时间和距离预约时间的秒数
-            logger.info(f"当前时间: {current_time}")
-            logger.info(f"距离预约时间还有: {time_difference} 秒")
-            # 如果距离时间过长，自动停止程序
-            if time_difference < 1000:
-                logger.info("距离预约时间过长，程序将自动停止。")
-                MESSAGE += "\n距离预约时间过长，程序将自动停止"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                send_message_anpush()
-                sys.exit()
-            # 如果距离时间在合适的范围内, 将设置等待时间
-            else:
-                # logger.info(f"程序等待{time_difference}秒后启动")
-                # time.sleep(time_difference - 10)
-                get_info_and_select_seat()
+        # 获取当前时间
+        current_time = datetime.datetime.now()
+        # 如果是 Github Action 环境
+        if GITHUB:
+            current_time += datetime.timedelta(hours=8)
+        # 设置预约时间为19:20
+        reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
+        # 计算距离预约时间的秒数
+        time_difference = (reservation_time - current_time).total_seconds()
+        # 如果距离时间过长，自动停止程序
+        if time_difference > 1000:
+            logger.info("距离预约时间过长，程序将自动停止。")
+            MESSAGE += "\n距离预约时间过长，程序将自动停止"
+            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+            asyncio.run(send_seat_result_to_channel())
+            send_message_anpush()
+            sys.exit()
+        # 如果距离时间在合适的范围内, 将设置等待时间
+        elif time_difference > 0:
+            logger.info(f"程序等待{time_difference}秒后启动")
+            time.sleep(time_difference - 10)
+            get_info_and_select_seat()
+        else:
+            get_info_and_select_seat()
 
 
 # 主函数
@@ -525,11 +525,13 @@ def get_info_and_select_seat():
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # 存储所有子线程的 Future 对象
             futures = []
+            future_second = executor.submit(check_book_seat)
+            futures.append(future_second)
             # 并发启动多个子线程
             for name in CLASSROOMS_NAME:
                 # logger.info(name)
-                future_third = executor.submit(process_classroom, name)
-                futures.append(future_third)
+                future_first = executor.submit(process_classroom, name)
+                futures.append(future_first)
 
             # 等待所有子线程完成
             concurrent.futures.wait(futures)
