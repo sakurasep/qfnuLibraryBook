@@ -21,9 +21,25 @@ macOS Sonoma 14.3
 ## 使用方法
 
 1. Fork 本项目，修改 `/py/main` 里的 `config.yml`
-2. 在 Github 仓库中添加 （必选）USERNAME，PASSWORD (推荐) BARK_URL （可选）CHANNEL_ID TELEGRAM_BOT_TOKEN
+2. 在 Github 仓库中添加 （必选）USERNAME，PASSWORD (推荐) BARK_URL 或 ANPUSH_TOKEN 和 ANPUSH_CHANNEL （可选）CHANNEL_ID TELEGRAM_BOT_TOKEN
 ![img.png](assets/img.png)
 
+## 如何配置消息推送
+1. （苹果用户 iOS/iPadOS/macOS） 
+使用 Bark 进行推送，在 App Store 下载 Bark。
+在服务器获取推送 token https://api.day.app/你的token/
+![img.png](assets/bark.jpg)
+2. （全平台用户，有魔法环境）
+使用 Telegram 进行推送，搜索 `@BotFather` 创建机器人获取 token
+![img](assets/create_bot.jpg)
+然后登录 [Telegram Web](https://web.telegram.org/) 打开你创建的频道, 此时#后面的就是频道ID
+![img](assets/web.jpg)
+3. （首选推荐）
+使用 Anpush 进行推送，在 [Anpush](https://anpush.com/) 推送平台注册账户
+免费的账户一天 30 条，足够足够了
+创建推送通道，建议选择微信或者QQ，你喜欢用什么接受消息就创建什么类型
+![img](assets/anpush.jpg)
+记住你的通道 ID 和 推送接口的 API 密钥，填入 Github Action的环境变量中
 ### 运行模式
 
 1. 优选模式 仅适用于西校区图书馆的三个自习室，个人优选了有插座的位置。

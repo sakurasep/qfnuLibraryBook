@@ -31,6 +31,8 @@ jobs:
         USERNAME: ${{ secrets.USERNAME }}
         PASSWORD: ${{ secrets.PASSWORD }}
         BARK_URL: ${{ secrets.BARK_URL }}
+        ANPUSH_TOKEN: ${{ secrets.ANPUSH_TOKEN }}
+        ANPUSH_CHANNEL: ${{ secrets.ANPUSH_CHANNEL }}
         DATE: "today"
 
     # - name: 显示配置 YAML
