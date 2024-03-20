@@ -219,9 +219,6 @@ def check_book_seat():
                     logger.info("存在正在使用的座位")
                     FLAG = True
                     break
-                else:
-                    logger.error("程序异常")
-                    FLAG = True
     # todo 未遇到此错误
     except KeyError:
         logger.error("数据解析错误")
