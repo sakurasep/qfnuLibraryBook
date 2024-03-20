@@ -210,9 +210,9 @@ def check_book_seat():
                     seat_id = entry["name"]
                     name = entry["nameMerge"]
                     MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
-                    # send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                    # asyncio.run(send_seat_result_to_channel())
-                    # send_message_anpush()
+                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                    asyncio.run(send_seat_result_to_channel())
+                    send_message_anpush()
                     FLAG = True
                     break
                 elif entry["statusName"] == "使用中" and DATE == "today":
