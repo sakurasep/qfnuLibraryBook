@@ -11,7 +11,7 @@ jobs:
 
     steps:
     - name: 安装 Python 3.12
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v5.0.0
       with:
         python-version: '3.12.0'
         architecture: 'x64'
@@ -20,7 +20,7 @@ jobs:
       run: python --version
 
     - name: 检出仓库代码到工作区
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4.1.2
       
 
     - name: 应用环境变量
