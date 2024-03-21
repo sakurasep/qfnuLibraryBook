@@ -484,31 +484,30 @@ def process_classroom(classroom_name):
 
 def check_time():
     global MESSAGE
-    if DATE == "tomorrow":
-        # 获取当前时间
-        current_time = datetime.datetime.now()
-        # 如果是 Github Action 环境
-        if GITHUB:
-            current_time += datetime.timedelta(hours=8)
-        # 设置预约时间为19:20
-        reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
-        # 计算距离预约时间的秒数
-        time_difference = (reservation_time - current_time).total_seconds()
-        # 如果距离时间过长，自动停止程序
-        if time_difference > 1000:
-            logger.info("距离预约时间过长，程序将自动停止。")
-            MESSAGE += "\n距离预约时间过长，程序将自动停止"
-            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-            asyncio.run(send_seat_result_to_channel())
-            send_message_anpush()
-            sys.exit()
-        # 如果距离时间在合适的范围内, 将设置等待时间
-        elif time_difference > 0:
-            logger.info(f"程序等待{time_difference}秒后启动")
-            time.sleep(time_difference - 10)
-            get_info_and_select_seat()
-        else:
-            get_info_and_select_seat()
+    # 获取当前时间
+    current_time = datetime.datetime.now()
+    # 如果是 Github Action 环境
+    if GITHUB:
+        current_time += datetime.timedelta(hours=8)
+    # 设置预约时间为19:20
+    reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
+    # 计算距离预约时间的秒数
+    time_difference = (reservation_time - current_time).total_seconds()
+    # 如果距离时间过长，自动停止程序
+    if time_difference > 1000:
+        logger.info("距离预约时间过长，程序将自动停止。")
+        MESSAGE += "\n距离预约时间过长，程序将自动停止"
+        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+        asyncio.run(send_seat_result_to_channel())
+        send_message_anpush()
+        sys.exit()
+    # 如果距离时间在合适的范围内, 将设置等待时间
+    elif time_difference > 0:
+        logger.info(f"程序等待{time_difference}秒后启动")
+        time.sleep(time_difference - 10)
+        get_info_and_select_seat()
+    else:
+        get_info_and_select_seat()
 
 
 # 主函数
@@ -544,8 +543,10 @@ if __name__ == "__main__":
         if MODE == "4" or MODE == "5":
             NEW_DATE = get_date(DATE)
             rebook_seat_or_checkout()
-        else:
+        if DATE == "tomorrow":
             check_time()
+        elif DATE == "today":
+            get_info_and_select_seat()
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
