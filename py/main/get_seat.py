@@ -208,11 +208,11 @@ def check_book_seat():
                 logger.info("存在已经预约的座位")
                 seat_id = entry["name"]
                 name = entry["nameMerge"]
+                FLAG = True
                 MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
                 send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
                 asyncio.run(send_seat_result_to_channel())
                 send_message_anpush()
-                FLAG = True
                 break
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
@@ -229,7 +229,7 @@ def check_reservation_status():
     global FLAG, MESSAGE
     # 状态信息检测
     status = SEAT_RESULT['msg']
-    logger.info(status)
+    logger.info("预约状态：" + status)
     if status is not None:
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
@@ -450,7 +450,7 @@ def rebook_seat_or_checkout():
                     res = send_post_request_and_save_response(URL_CHECK_OUT, post_data, request_headers)
                     if "msg" in res:
                         status = res["msg"]
-                        logger.info(status)
+                        logger.info("签退状态：" + status)
                         if status == "完全离开操作成功":
                             MESSAGE += "\n恭喜签退成功"
                             send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
