@@ -202,27 +202,26 @@ def get_auth_token():
 def check_book_seat():
     global MESSAGE, FLAG
     try:
-        while not FLAG:
-            res = get_member_seat(AUTH_TOKEN)
-            for entry in res["data"]["data"]:
-                if entry["statusName"] == "预约成功" and DATE == "tomorrow":
-                    logger.info("存在已经预约的座位")
-                    seat_id = entry["name"]
-                    name = entry["nameMerge"]
-                    MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
-                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                    asyncio.run(send_seat_result_to_channel())
-                    send_message_anpush()
-                    FLAG = True
-                    break
-                elif entry["statusName"] == "使用中" and DATE == "today":
-                    logger.info("存在正在使用的座位")
-                    FLAG = True
-                    break
-    # todo 未遇到此错误
+        res = get_member_seat(AUTH_TOKEN)
+        for entry in res["data"]["data"]:
+            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+                logger.info("存在已经预约的座位")
+                seat_id = entry["name"]
+                name = entry["nameMerge"]
+                MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
+                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
+                asyncio.run(send_seat_result_to_channel())
+                send_message_anpush()
+                FLAG = True
+                break
+            elif entry["statusName"] == "使用中" and DATE == "today":
+                logger.info("存在正在使用的座位")
+                FLAG = True
+                break
+    # todo 错误不明 需要提供日志
     except KeyError:
-        logger.error("数据解析错误")
-        sys.exit()
+        logger.error("获取个人座位出现错误")
+        check_book_seat()
 
 
 # 状态检测函数
@@ -234,9 +233,11 @@ def check_reservation_status():
     if status is not None:
         if status == "当前时段存在预约，不可重复预约!":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+            check_book_seat()
             FLAG = True
         elif status == "预约成功":
             logger.info("成功预约")
+            check_book_seat()
             FLAG = True
         elif status == "开放预约时间19:20":
             logger.info("未到预约时间")
@@ -482,6 +483,11 @@ def process_classroom(classroom_name):
     select_seat(build_id, segment, NEW_DATE)
 
 
+def process_check_seat():
+    while not FLAG:
+        check_book_seat()
+
+
 def check_time():
     global MESSAGE
     # 获取当前时间
@@ -521,7 +527,7 @@ def get_info_and_select_seat():
         with concurrent.futures.ThreadPoolExecutor() as executor:
             # 存储所有子线程的 Future 对象
             futures = []
-            future_second = executor.submit(check_book_seat)
+            future_second = executor.submit(process_check_seat)
             futures.append(future_second)
             # 并发启动多个子线程
             for name in CLASSROOMS_NAME:
