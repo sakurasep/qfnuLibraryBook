@@ -508,7 +508,7 @@ def check_time():
         send_message_anpush()
         sys.exit()
     # 如果距离时间在合适的范围内, 将设置等待时间
-    elif time_difference > 0:
+    elif time_difference > 30:
         logger.info(f"程序等待{time_difference}秒后启动")
         time.sleep(time_difference - 10)
         get_info_and_select_seat()
