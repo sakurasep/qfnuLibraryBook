@@ -401,7 +401,8 @@ def rebook_seat_or_checkout():
         if res is not None:
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
-                # logger.info("test")
+                current_time = datetime.datetime.now()
+                logger.info(current_time)
                 for item in res["data"]["data"]:
                     if item["statusName"] == "预约开始提醒":
                         ids = item["id"]  # 获取 id
