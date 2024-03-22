@@ -395,7 +395,7 @@ def rebook_seat_or_checkout():
     try:
         get_auth_token()
         res = get_member_seat(AUTH_TOKEN)
-        # logger.info(res)
+        logger.info(res)
         if res is not None:
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
