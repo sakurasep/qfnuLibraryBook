@@ -71,7 +71,7 @@ def send_post_request_and_save_response(url, data, headers):
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            response = requests.post(url, json=data, headers=headers, timeout=10)
+            response = requests.post(url, json=data, headers=headers, timeout=120)
             response.raise_for_status()
             response_data = response.json()
             return response_data
