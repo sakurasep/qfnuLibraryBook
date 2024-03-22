@@ -2,6 +2,8 @@ name: 重新预约此位置
 
 on:
   workflow_dispatch:
+  schedule:
+  - cron: '20 0 * * *' # 北京时间每天的21:30
 
 jobs:
   build:
