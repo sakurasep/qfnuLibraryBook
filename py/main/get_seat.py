@@ -218,10 +218,12 @@ def check_book_seat():
                 logger.info("存在正在使用的座位")
                 FLAG = True
                 break
+            else:
+                continue
     # todo 错误不明 需要提供日志
-    except KeyError:
+    except Exception as e:
+        logger.error(e)
         logger.error("获取个人座位出现错误")
-        check_book_seat()
 
 
 # 状态检测函数
@@ -500,7 +502,7 @@ def check_time():
     # 计算距离预约时间的秒数
     time_difference = (reservation_time - current_time).total_seconds()
     # 如果距离时间过长，自动停止程序
-    if time_difference > 1000:
+    if time_difference > 1200:
         logger.info("距离预约时间过长，程序将自动停止。")
         MESSAGE += "\n距离预约时间过长，程序将自动停止"
         send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
