@@ -401,7 +401,7 @@ def rebook_seat_or_checkout():
             if MODE == "5":
                 # logger.info("test")
                 for item in res["data"]["data"]:
-                    if item["statusName"] == "预约开始提醒":
+                    if item["statusName"] == "预约开始提醒" or item["statusName"] == "预约成功":
                         ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
