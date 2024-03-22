@@ -204,7 +204,7 @@ def check_book_seat():
     try:
         res = get_member_seat(AUTH_TOKEN)
         for entry in res["data"]["data"]:
-            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+            if entry["statusName"] == "预约成功" and DATE == "tomorrow" or DATE == "today":
                 logger.info("存在已经预约的座位")
                 seat_id = entry["name"]
                 name = entry["nameMerge"]
@@ -249,7 +249,6 @@ def check_reservation_status():
             logger.info("此位置已被预约，重新获取座位")
         elif status == "取消成功":
             logger.info("取消成功")
-            sys.exit()
 
 
 def generate_unique_random():
@@ -385,6 +384,7 @@ def cancel_seat(seat_id):
             "Authorization": AUTH_TOKEN
         }
         SEAT_RESULT = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
+        check_reservation_status();
     except KeyError:
         logger.info("数据解析错误")
 
@@ -395,7 +395,7 @@ def rebook_seat_or_checkout():
     try:
         get_auth_token()
         res = get_member_seat(AUTH_TOKEN)
-        logger.info(res)
+        # logger.info(res)
         if res is not None:
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
@@ -410,6 +410,7 @@ def rebook_seat_or_checkout():
                         segment = get_segment(build_id, NEW_DATE)
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
+                        break
                     else:
                         logger.error("没有找到已经预约的座位，你可能没有预约座位")
                         MESSAGE += "\n没有找到已经预约的座位，你可能没有预约座位"
