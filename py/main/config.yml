@@ -1,3 +1,6 @@
+# 通知渠道选择
+PUSH_METHOD: "ANPUSH"
+
 # Telegram 相关
 CHANNEL_ID: ""
 TELEGRAM_BOT_TOKEN: ""
@@ -18,12 +21,10 @@ PASSWORD: ""
 GITHUB: True
 
 # 程序设置
-MODE: "1"
+MODE: "2"
 SEAT_ID:
   - 7520
   - 7543
 DATE: "tomorrow"
 CLASSROOMS_NAME:
   - 西校区图书馆-五层自习室
-  - 西校区图书馆-四层自习室
-  - 西校区图书馆-三层自习室

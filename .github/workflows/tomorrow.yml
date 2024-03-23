@@ -2,8 +2,8 @@ name: 预约明天的位置
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '10 11 * * *' # 北京时间每天的19:15
+  repository_dispatch:
+    types: [schedule-run]
 
 jobs:
   build:

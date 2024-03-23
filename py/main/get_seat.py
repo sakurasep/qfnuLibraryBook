@@ -38,13 +38,15 @@ BARK_URL = ""
 BARK_EXTRA = ""
 ANPUSH_TOKEN = ""
 ANPUSH_CHANNEL = ""
+PUSH_METHOD = ""
 
 
 # 读取YAML配置文件并设置全局变量
 def read_config_from_yaml():
     global CHANNEL_ID, TELEGRAM_BOT_TOKEN, \
         CLASSROOMS_NAME, MODE, SEAT_ID, DATE, \
-        USERNAME, PASSWORD, GITHUB, BARK_EXTRA, BARK_URL, ANPUSH_TOKEN, ANPUSH_CHANNEL
+        USERNAME, PASSWORD, GITHUB, BARK_EXTRA, \
+        BARK_URL, ANPUSH_TOKEN, ANPUSH_CHANNEL, PUSH_METHOD
     current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
     config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
     with open(config_file_path, 'r') as yaml_file:
@@ -62,6 +64,7 @@ def read_config_from_yaml():
         BARK_EXTRA = config.get("BARK_EXTRA", "")
         ANPUSH_TOKEN = config.get("ANPUSH_TOKEN", "")
         ANPUSH_CHANNEL = config.get("ANPUSH_CHANNEL", "")
+        PUSH_METHOD = config.get("PUSH_METHOD", "")
 
 
 # 在代码的顶部定义全局变量
@@ -101,7 +104,8 @@ def print_variables():
         "BARK_URL": BARK_URL,
         "BARK_EXTRA": BARK_EXTRA,
         "ANPUSH_TOKEN": ANPUSH_TOKEN,
-        "ANPUSH_CHANNEL": ANPUSH_CHANNEL
+        "ANPUSH_CHANNEL": ANPUSH_CHANNEL,
+        "PUSH_METHOD": PUSH_METHOD
     }
     for var_name, var_value in variables.items():
         logger.info(f"{var_name}: {var_value} - {type(var_value)}")
@@ -125,16 +129,23 @@ def send_post_request_and_save_response(url, data, headers):
             retries += 1
     logger.error("超过最大重试次数,请求失败。")
     MESSAGE += "\n超过最大重试次数,请求失败。"
-    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-    asyncio.run(send_seat_result_to_channel())
-    send_message_anpush()
+    send_message()
     sys.exit()
 
 
+def send_message():
+    if PUSH_METHOD == "TG":
+        asyncio.run(send_message_telegram())
+    if PUSH_METHOD == "ANPUSH":
+        send_message_anpush()
+    if PUSH_METHOD == "BARK":
+        send_message_bark()
+
+
 # 推送到 Bark
-def send_get_request(url):
+def send_message_bark():
     try:
-        response = requests.get(url)
+        response = requests.get(BARK_URL + MESSAGE + BARK_EXTRA)
         # 检查响应状态码是否为200
         if response.status_code == 200:
             logger.info("成功推送消息到 Bark")
@@ -164,7 +175,7 @@ def send_message_anpush():
     # logger.info(response.text)
 
 
-async def send_seat_result_to_channel():
+async def send_message_telegram():
     try:
         # 使用 API 令牌初始化您的机器人
         bot = Bot(token=TELEGRAM_BOT_TOKEN)
@@ -210,9 +221,7 @@ def check_book_seat():
                 name = entry["nameMerge"]
                 FLAG = True
                 MESSAGE += f"预约成功：你当前的座位是 {name} {seat_id}\n"
-                send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                asyncio.run(send_seat_result_to_channel())
-                send_message_anpush()
+                send_message()
                 break
             elif entry["statusName"] == "使用中" and DATE == "today":
                 logger.info("存在正在使用的座位")
@@ -401,10 +410,10 @@ def rebook_seat_or_checkout():
         if res is not None:
             # 延长半小时，寻找已预约的座位
             if MODE == "5":
-                current_time = datetime.datetime.now()
-                logger.info(current_time)
+                # current_time = datetime.datetime.now()
+                # logger.info(current_time)
                 for item in res["data"]["data"]:
-                    if item["statusName"] == "预约开始提醒":
+                    if item["statusName"] == "预约开始提醒" or item["statusName"] == "预约成功":
                         ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
@@ -414,11 +423,9 @@ def rebook_seat_or_checkout():
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
                     else:
-                        logger.error("没有找到已经预约的座位，你可能没有预约座位")
-                        MESSAGE += "\n没有找到已经预约的座位，你可能没有预约座位"
-                        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                        asyncio.run(send_seat_result_to_channel())
-                        send_message_anpush()
+                        logger.error("没有找到已经预约的座位")
+                        MESSAGE += "\n没有找到已经预约的座位"
+                        send_message()
                         sys.exit()
             # 签退，寻找正在使用的座位
             if MODE == "4":
@@ -456,18 +463,14 @@ def rebook_seat_or_checkout():
                         logger.info("签退状态：" + status)
                         if status == "完全离开操作成功":
                             MESSAGE += "\n恭喜签退成功"
-                            send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                            asyncio.run(send_seat_result_to_channel())
-                            send_message_anpush()
+                            send_message()
                             sys.exit()
                         else:
                             logger.info("已经签退")
                 else:
                     logger.error("没有找到正在使用的座位，今天你可能没有预约座位")
                     MESSAGE += "\n没有找到正在使用的座位，今天你可能没有预约座位"
-                    send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-                    asyncio.run(send_seat_result_to_channel())
-                    send_message_anpush()
+                    send_message()
                     sys.exit()
         # todo 没有遇到此错误
         else:
@@ -506,9 +509,7 @@ def check_time():
     if time_difference > 1200:
         logger.info("距离预约时间过长，程序将自动停止。")
         MESSAGE += "\n距离预约时间过长，程序将自动停止"
-        send_get_request(BARK_URL + MESSAGE + BARK_EXTRA)
-        asyncio.run(send_seat_result_to_channel())
-        send_message_anpush()
+        send_message()
         sys.exit()
     # 如果距离时间在合适的范围内, 将设置等待时间
     elif time_difference > 30:

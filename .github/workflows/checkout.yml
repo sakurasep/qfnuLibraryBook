@@ -2,8 +2,8 @@ name: 自动签退
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '30 13 * * *' # 北京时间每天的21:30
+  repository_dispatch:
+    types: [schedule-run]
 
 jobs:
   build:
