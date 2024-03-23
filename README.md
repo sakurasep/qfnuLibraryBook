@@ -6,7 +6,7 @@
 
 详细内容请访问我的博客[上杉九月的博客-Wiki-qfnuLibraryBook](https://blog.sakurasep.site/wiki/qfnuLibraryBook/index.html)
 
-关于 Github Action 无法定时执行，请[使用第三方 Cron 定时执行 Github Action](看https://blog.sakurasep.site/posts/cron-github-action/)
+关于 Github Action 无法定时执行，请[使用第三方 Cron 定时执行 Github Action](https://blog.sakurasep.site/posts/cron-github-action/)
 
 ## 注意事项
 
