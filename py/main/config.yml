@@ -21,7 +21,7 @@ PASSWORD: ""
 GITHUB: True
 
 # 程序设置
-MODE: "2"
+MODE: "1"
 SEAT_ID:
   - 7520
   - 7543
