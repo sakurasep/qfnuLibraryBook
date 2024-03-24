@@ -232,7 +232,7 @@ def check_book_seat():
             else:
                 continue
         # 测试规则不匹配的情况
-        logger.info(res)
+        # logger.info(res)
     # todo 错误不明 需要提供日志
     except Exception as e:
         logger.error("获取个人座位出现错误")
@@ -558,8 +558,7 @@ if __name__ == "__main__":
             NEW_DATE = get_date(DATE)
             rebook_seat_or_checkout()
         if DATE == "tomorrow":
-            get_info_and_select_seat()
-            # check_time()
+            check_time()
         elif DATE == "today":
             get_info_and_select_seat()
 
