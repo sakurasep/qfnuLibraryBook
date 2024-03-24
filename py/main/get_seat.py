@@ -231,9 +231,10 @@ def check_book_seat():
                 break
             else:
                 continue
+        # 测试规则不匹配的情况
+        logger.info(res)
     # todo 错误不明 需要提供日志
     except Exception as e:
-        logger.error(e)
         logger.error("获取个人座位出现错误")
 
 
