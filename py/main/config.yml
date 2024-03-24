@@ -21,10 +21,12 @@ PASSWORD: ""
 GITHUB: True
 
 # 程序设置
-MODE: "2"
+MODE: "1"
 SEAT_ID:
   - 7520
   - 7543
 DATE: "tomorrow"
 CLASSROOMS_NAME:
   - 西校区图书馆-五层自习室
+  - 西校区图书馆-四层自习室
+  - 西校区图书馆-三层自习室
