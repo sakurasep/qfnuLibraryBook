@@ -214,6 +214,8 @@ def check_book_seat():
     global MESSAGE, FLAG
     try:
         res = get_member_seat(AUTH_TOKEN)
+        if "msg" in res == "您尚未登录":
+            get_auth_token()
         for entry in res["data"]["data"]:
             if entry["statusName"] == "预约成功" and DATE == "tomorrow":
                 logger.info("存在已经预约的座位")
@@ -492,6 +494,7 @@ def process_classroom(classroom_name):
 def process_check_seat():
     while not FLAG:
         check_book_seat()
+        time.sleep(10)
 
 
 def check_time():
@@ -554,7 +557,8 @@ if __name__ == "__main__":
             NEW_DATE = get_date(DATE)
             rebook_seat_or_checkout()
         if DATE == "tomorrow":
-            check_time()
+            get_info_and_select_seat()
+            # check_time()
         elif DATE == "today":
             get_info_and_select_seat()
 
