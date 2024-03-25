@@ -217,7 +217,7 @@ def check_book_seat():
         if "msg" in res == "您尚未登录":
             get_auth_token()
         for entry in res["data"]["data"]:
-            if entry["statusName"] == "预约成功" and DATE == "tomorrow":
+            if entry["statusName"] == "预约成功":
                 logger.info("存在已经预约的座位")
                 seat_id = entry["name"]
                 name = entry["nameMerge"]
@@ -425,6 +425,7 @@ def rebook_seat_or_checkout():
                         segment = get_segment(build_id, NEW_DATE)
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
+                        break
                     else:
                         logger.error("没有找到已经预约的座位")
                         MESSAGE += "\n没有找到已经预约的座位"
