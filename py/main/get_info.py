@@ -89,10 +89,12 @@ def send_post_request_and_save_response(url, data, headers):
 
 # 获取教室 id
 def get_build_id(classname):
-    # logger.info(f"教室名称: {classname}")
-    build_id = classroom_id_mapping.get(classname)
+    logger.info(f"教室名称: {classname}")
+    # 使用列表的第一个元素作为键来获取相应的值
+    build_id = classroom_id_mapping.get(classname[0])
     # logger.info(build_id)
     return build_id
+
 
 
 def get_segment(build_id, nowday):

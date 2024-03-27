@@ -1,5 +1,4 @@
 import asyncio
-import concurrent.futures
 import datetime
 import logging
 import os
@@ -53,7 +52,7 @@ def read_config_from_yaml():
         config = yaml.safe_load(yaml_file)
         CHANNEL_ID = config.get('CHANNEL_ID', '')
         TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
-        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
+        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", '')
         MODE = config.get("MODE", "")
         SEAT_ID = config.get("SEAT_ID", [])  # 修改此处，将 SEAT_ID 读取为列表
         DATE = config.get("DATE", "")
@@ -234,7 +233,7 @@ def check_book_seat():
         # 测试规则不匹配的情况
         # logger.info(res)
     # todo 错误不明 需要提供日志
-    except Exception as e:
+    except KeyError:
         logger.error("获取个人座位出现错误")
 
 
@@ -245,7 +244,7 @@ def check_reservation_status():
     status = SEAT_RESULT['msg']
     logger.info("预约状态：" + status)
     if status is not None:
-        if status == "当前时段存在预约，不可重复预约!":
+        if status == "当前用户在该时段已存在座位预约，不可重复预约":
             logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
             check_book_seat()
             FLAG = True
@@ -263,6 +262,9 @@ def check_reservation_status():
             logger.info("此位置已被预约，重新获取座位")
         elif status == "取消成功":
             logger.info("取消成功")
+            sys.exit()
+        else:
+            FLAG = True
             sys.exit()
 
 
@@ -334,45 +336,44 @@ def random_get_seat(data):
 # 选座主要逻辑
 def select_seat(build_id, segment, nowday):
     # 初始化
-    try:
-        while not FLAG:
-            # 获取座位信息
-            # 优选逻辑
-            if MODE == "1":
-                data = get_seat_info(build_id, segment, nowday)
-                new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
-                # logger.info(new_data)
-                # 检查返回的列表是否为空
-                if not new_data:
-                    # logger.info("无可用座位, 程序将 1s 后再次获取")
-                    time.sleep(3)
-                    continue
-                else:
-                    select_id = random_get_seat(new_data)
-                    # 请求 confirm, 为了避免请求过快出现多次产生错误的预约成功
-                    time.sleep(1)
-                    post_to_get_seat(select_id, segment)
-            # 指定逻辑
-            elif MODE == "2":
-                seat_id = generate_unique_random()
-                # logger.info(f"你选定的座位为: {seat_id}")
-                post_to_get_seat(seat_id, segment)
-            # 默认逻辑
-            elif MODE == "3":
-                data = get_seat_info(build_id, segment, nowday)
-                # 检查返回的列表是否为空
-                if not data:
-                    # logger.info("无可用座位, 程序将 3s 后再次获取")
-                    time.sleep(3)
-                    continue
-                else:
-                    select_id = random_get_seat(data)
-                    post_to_get_seat(select_id, segment)
+    while not FLAG:
+        # 获取座位信息
+        # 优选逻辑
+        if MODE == "1":
+            data = get_seat_info(build_id, segment, nowday)
+            new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
+            # logger.info(new_data)
+            # 检查返回的列表是否为空
+            if not new_data:
+                # logger.info("无可用座位, 程序将 1s 后再次获取")
+                time.sleep(3)
+                continue
             else:
-                logger.error(f"未知的模式: {MODE}")
-
-    except KeyboardInterrupt:
-        logger.info(f"接收到中断信号，程序将退出。")
+                select_id = random_get_seat(new_data)
+                post_to_get_seat(select_id, segment)
+                time.sleep(1)
+                continue
+        # 指定逻辑
+        elif MODE == "2":
+            seat_id = generate_unique_random()
+            # logger.info(f"你选定的座位为: {seat_id}")
+            post_to_get_seat(seat_id, segment)
+            continue
+        # 默认逻辑
+        elif MODE == "3":
+            data = get_seat_info(build_id, segment, nowday)
+            # 检查返回的列表是否为空
+            if not data:
+                # logger.info("无可用座位, 程序将 3s 后再次获取")
+                time.sleep(3)
+                continue
+            else:
+                select_id = random_get_seat(data)
+                post_to_get_seat(select_id, segment)
+                continue
+        else:
+            logger.error(f"未知的模式: {MODE}")
+            break
 
 
 # 取消座位预约（慎用！！！）
@@ -487,18 +488,6 @@ def rebook_seat_or_checkout():
         rebook_seat_or_checkout()
 
 
-def process_classroom(classroom_name):
-    build_id = get_build_id(classroom_name)
-    segment = get_segment(build_id, NEW_DATE)
-    select_seat(build_id, segment, NEW_DATE)
-
-
-def process_check_seat():
-    while not FLAG:
-        check_book_seat()
-        time.sleep(10)
-
-
 def check_time():
     global MESSAGE
     # 获取当前时间
@@ -532,20 +521,9 @@ def get_info_and_select_seat():
         # logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
         get_auth_token()
-        # 多线程执行程序
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # 存储所有子线程的 Future 对象
-            futures = []
-            future_second = executor.submit(process_check_seat)
-            futures.append(future_second)
-            # 并发启动多个子线程
-            for name in CLASSROOMS_NAME:
-                # logger.info(name)
-                future_first = executor.submit(process_classroom, name)
-                futures.append(future_first)
-
-            # 等待所有子线程完成
-            concurrent.futures.wait(futures)
+        build_id = get_build_id(CLASSROOMS_NAME)
+        segment = get_segment(build_id, NEW_DATE)
+        select_seat(build_id, segment, NEW_DATE)
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
