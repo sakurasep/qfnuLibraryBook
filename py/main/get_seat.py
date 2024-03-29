@@ -241,31 +241,35 @@ def check_book_seat():
 def check_reservation_status():
     global FLAG, MESSAGE
     # 状态信息检测
-    status = SEAT_RESULT['msg']
-    logger.info("预约状态：" + status)
-    if status is not None:
-        if status == "当前用户在该时段已存在座位预约，不可重复预约":
-            logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
-            check_book_seat()
-            FLAG = True
-        elif status == "预约成功":
-            logger.info("成功预约")
-            check_book_seat()
-            FLAG = True
-        elif status == "开放预约时间19:20":
-            logger.info("未到预约时间")
-            time.sleep(1)
-        elif status == "您尚未登录":
-            logger.info("没有登录，将重新尝试获取 token")
-            get_auth_token()
-        elif status == "该空间当前状态不可预约":
-            logger.info("此位置已被预约，重新获取座位")
-        elif status == "取消成功":
-            logger.info("取消成功")
-            sys.exit()
-        else:
-            FLAG = True
-            sys.exit()
+    if isinstance(SEAT_RESULT, dict) and 'msg' in SEAT_RESULT:
+        status = SEAT_RESULT['msg']
+        logger.info("预约状态：" + str(status))
+        if status is not None:
+            if status == "当前用户在该时段已存在座位预约，不可重复预约":
+                logger.info("重复预约, 请检查选择的时间段或是否已经成功预约")
+                check_book_seat()
+                FLAG = True
+            elif status == "预约成功":
+                logger.info("成功预约")
+                check_book_seat()
+                FLAG = True
+            elif status == "开放预约时间19:20":
+                logger.info("未到预约时间")
+                time.sleep(1)
+            elif status == "您尚未登录":
+                logger.info("没有登录，将重新尝试获取 token")
+                get_auth_token()
+            elif status == "该空间当前状态不可预约":
+                logger.info("此位置已被预约，重新获取座位")
+            elif status == "取消成功":
+                logger.info("取消成功")
+                sys.exit()
+            else:
+                FLAG = True
+                sys.exit()
+    else:
+        logger.error("未能获取有效的座位预约状态")
+
 
 
 def generate_unique_random():
