@@ -91,7 +91,7 @@ def send_post_request_and_save_response(url, data, headers):
 def get_build_id(classname):
     logger.info(f"教室名称: {classname}")
     # 使用列表的第一个元素作为键来获取相应的值
-    build_id = classroom_id_mapping.get(classname[0])
+    build_id = classroom_id_mapping.get(classname)
     # logger.info(build_id)
     return build_id
 

@@ -11,7 +11,7 @@ import yaml
 from telegram import Bot
 
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat
+from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat, decrypt
 
 # 配置日志
 logger = logging.getLogger("httpx")
@@ -428,6 +428,7 @@ def rebook_seat_or_checkout():
                         name_merge = name_merge.split('-', 1)[-1]
                         build_id = get_build_id(name_merge)
                         segment = get_segment(build_id, NEW_DATE)
+                        # logger.info(ids + space + segment)
                         cancel_seat(ids)
                         post_to_get_seat(space, segment)
                         break
@@ -481,15 +482,12 @@ def rebook_seat_or_checkout():
                     MESSAGE += "\n没有找到正在使用的座位，今天你可能没有预约座位"
                     send_message()
                     sys.exit()
-        # todo 没有遇到此错误
-        else:
-            logger.error("获取数据失败，请检查登录状态")
-            sys.exit()
+            else:
+                logger.error("获取数据失败，请检查登录状态")
+                sys.exit()
 
     except KeyError:
         logger.error("返回数据与规则不符，大概率是没有登录")
-        get_auth_token()
-        rebook_seat_or_checkout()
 
 
 def check_time():
