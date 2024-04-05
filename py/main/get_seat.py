@@ -342,7 +342,7 @@ def select_seat(build_id, segment, nowday):
     global MESSAGE
     retries = 0  # 添加重试计数器
     # 初始化
-    while not FLAG or retries < 2000:
+    while not FLAG and retries < 2000:
         retries += 1
         # 获取座位信息
         # 优选逻辑
