@@ -86,8 +86,6 @@ EXCLUDE_ID = {'7115', '7120', '7125', '7130', '7135', '7140', '7145', '7150', '7
               '7587', '7590', '7761', '7764', '7767', '7770', '7773', '7776', '7779', '7782', '7785', '7788', '7791',
               '7794', '7797', '7800', '7803', '7806'}
 
-MAX_RETRIES = 200  # 最大重试次数
-
 
 # 打印变量
 def print_variables():
@@ -114,7 +112,7 @@ def print_variables():
 def send_post_request_and_save_response(url, data, headers):
     global MESSAGE
     retries = 0
-    while retries < MAX_RETRIES:
+    while retries < 20:
         try:
             response = requests.post(url, json=data, headers=headers, timeout=120)
             response.raise_for_status()
@@ -266,10 +264,12 @@ def check_reservation_status():
                 sys.exit()
             else:
                 FLAG = True
-                sys.exit()
+                logger.info(f"未知状态信息: {status}")
+        else:
+            FLAG = True
+            logger.info(SEAT_RESULT)
     else:
         logger.error("未能获取有效的座位预约状态")
-
 
 
 def generate_unique_random():
@@ -339,8 +339,11 @@ def random_get_seat(data):
 
 # 选座主要逻辑
 def select_seat(build_id, segment, nowday):
+    global MESSAGE
+    retries = 0  # 添加重试计数器
     # 初始化
-    while not FLAG:
+    while not FLAG or retries < 2000:
+        retries += 1
         # 获取座位信息
         # 优选逻辑
         if MODE == "1":
@@ -378,6 +381,13 @@ def select_seat(build_id, segment, nowday):
         else:
             logger.error(f"未知的模式: {MODE}")
             break
+
+    # 如果超过最大重试次数仍然没有获取到座位,则退出程序
+    if retries >= 2000:
+        logger.error("超过最大重试次数,无法获取座位")
+        MESSAGE += "\n超过最大重试次数,无法获取座位"
+        send_message()
+        sys.exit()
 
 
 # 取消座位预约（慎用！！！）
