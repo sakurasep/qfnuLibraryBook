@@ -266,7 +266,6 @@ def check_reservation_status():
                 FLAG = True
                 logger.info(f"未知状态信息: {status}")
         else:
-            FLAG = True
             logger.info(SEAT_RESULT)
     else:
         logger.error("未能获取有效的座位预约状态")
@@ -511,6 +510,7 @@ def check_time():
     reservation_time = current_time.replace(hour=19, minute=20, second=0, microsecond=0)
     # 计算距离预约时间的秒数
     time_difference = (reservation_time - current_time).total_seconds()
+    # time_difference = 0
     # 如果距离时间过长，自动停止程序
     if time_difference > 1200:
         logger.info("距离预约时间过长，程序将自动停止。")
@@ -552,6 +552,8 @@ if __name__ == "__main__":
             check_time()
         elif DATE == "today":
             get_info_and_select_seat()
+        # SEAT_RESULT = "{'code': 0, 'msg': None, 'seat': None}"
+        # check_reservation_status()
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
