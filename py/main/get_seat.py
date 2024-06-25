@@ -48,7 +48,7 @@ def read_config_from_yaml():
         BARK_URL, ANPUSH_TOKEN, ANPUSH_CHANNEL, PUSH_METHOD
     current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
     config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
-    with open(config_file_path, 'r') as yaml_file:
+    with open(config_file_path, "r", encoding="utf-8") as yaml_file: # 指定为UTF-8格式打开文件
         config = yaml.safe_load(yaml_file)
         CHANNEL_ID = config.get('CHANNEL_ID', '')
         TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
