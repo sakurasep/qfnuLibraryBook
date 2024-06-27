@@ -11,7 +11,15 @@ import yaml
 from telegram import Bot
 
 from get_bearer_token import get_bearer_token
-from get_info import get_date, get_seat_info, get_segment, get_build_id, encrypt, get_member_seat, decrypt
+from get_info import (
+    get_date,
+    get_seat_info,
+    get_segment,
+    get_build_id,
+    encrypt,
+    get_member_seat,
+    decrypt,
+)
 
 # 配置日志
 logger = logging.getLogger("httpx")
@@ -42,22 +50,23 @@ PUSH_METHOD = ""
 
 # 读取YAML配置文件并设置全局变量
 def read_config_from_yaml():
-    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, \
-        CLASSROOMS_NAME, MODE, SEAT_ID, DATE, \
-        USERNAME, PASSWORD, GITHUB, BARK_EXTRA, \
-        BARK_URL, ANPUSH_TOKEN, ANPUSH_CHANNEL, PUSH_METHOD
-    current_dir = os.path.dirname(os.path.abspath(__file__))  # 获取当前文件所在的目录的绝对路径
-    config_file_path = os.path.join(current_dir, 'config.yml')  # 将文件名与目录路径拼接起来
-    with open(config_file_path, "r", encoding="utf-8") as yaml_file: # 指定为UTF-8格式打开文件
+    global CHANNEL_ID, TELEGRAM_BOT_TOKEN, CLASSROOMS_NAME, MODE, SEAT_ID, DATE, USERNAME, PASSWORD, GITHUB, BARK_EXTRA, BARK_URL, ANPUSH_TOKEN, ANPUSH_CHANNEL, PUSH_METHOD
+    current_dir = os.path.dirname(
+        os.path.abspath(__file__)
+    )  # 获取当前文件所在的目录的绝对路径
+    config_file_path = os.path.join(
+        current_dir, "config.yml"
+    )  # 将文件名与目录路径拼接起来
+    with open(config_file_path, "r", encoding="utf-8") as yaml_file:
         config = yaml.safe_load(yaml_file)
-        CHANNEL_ID = config.get('CHANNEL_ID', '')
-        TELEGRAM_BOT_TOKEN = config.get('TELEGRAM_BOT_TOKEN', '')
-        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", '')
+        CHANNEL_ID = config.get("CHANNEL_ID", "")
+        TELEGRAM_BOT_TOKEN = config.get("TELEGRAM_BOT_TOKEN", "")
+        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
         MODE = config.get("MODE", "")
         SEAT_ID = config.get("SEAT_ID", [])  # 修改此处，将 SEAT_ID 读取为列表
         DATE = config.get("DATE", "")
-        USERNAME = config.get('USERNAME', '')
-        PASSWORD = config.get('PASSWORD', '')
+        USERNAME = config.get("USERNAME", "")
+        PASSWORD = config.get("PASSWORD", "")
         GITHUB = config.get("GITHUB", "")
         BARK_URL = config.get("BARK_URL", "")
         BARK_EXTRA = config.get("BARK_EXTRA", "")
@@ -77,14 +86,104 @@ TOKEN_TIMESTAMP = None
 TOKEN_EXPIRY_DELTA = datetime.timedelta(hours=1, minutes=30)
 
 # 配置常量
-EXCLUDE_ID = {'7115', '7120', '7125', '7130', '7135', '7140', '7145', '7150', '7155', '7160', '7165', '7170', '7175',
-              '7180', '7185', '7190', '7241', '7244', '7247', '7250', '7253', '7256', '7259', '7262', '7291', '7296',
-              '7301', '7306', '7311', '7316', '7321', '7326', '7331', '7336', '7341', '7346', '7351', '7356', '7361',
-              '7366', '7369', '7372', '7375', '7378', '7381', '7384', '7387', '7390', '7417', '7420', '7423', '7426',
-              '7429', '7432', '7435', '7438', '7443', '7448', '7453', '7458', '7463', '7468', '7473', '7478', '7483',
-              '7488', '7493', '7498', '7503', '7508', '7513', '7518', '7569', '7572', '7575', '7578', '7581', '7584',
-              '7587', '7590', '7761', '7764', '7767', '7770', '7773', '7776', '7779', '7782', '7785', '7788', '7791',
-              '7794', '7797', '7800', '7803', '7806'}
+EXCLUDE_ID = {
+    "7115",
+    "7120",
+    "7125",
+    "7130",
+    "7135",
+    "7140",
+    "7145",
+    "7150",
+    "7155",
+    "7160",
+    "7165",
+    "7170",
+    "7175",
+    "7180",
+    "7185",
+    "7190",
+    "7241",
+    "7244",
+    "7247",
+    "7250",
+    "7253",
+    "7256",
+    "7259",
+    "7262",
+    "7291",
+    "7296",
+    "7301",
+    "7306",
+    "7311",
+    "7316",
+    "7321",
+    "7326",
+    "7331",
+    "7336",
+    "7341",
+    "7346",
+    "7351",
+    "7356",
+    "7361",
+    "7366",
+    "7369",
+    "7372",
+    "7375",
+    "7378",
+    "7381",
+    "7384",
+    "7387",
+    "7390",
+    "7417",
+    "7420",
+    "7423",
+    "7426",
+    "7429",
+    "7432",
+    "7435",
+    "7438",
+    "7443",
+    "7448",
+    "7453",
+    "7458",
+    "7463",
+    "7468",
+    "7473",
+    "7478",
+    "7483",
+    "7488",
+    "7493",
+    "7498",
+    "7503",
+    "7508",
+    "7513",
+    "7518",
+    "7569",
+    "7572",
+    "7575",
+    "7578",
+    "7581",
+    "7584",
+    "7587",
+    "7590",
+    "7761",
+    "7764",
+    "7767",
+    "7770",
+    "7773",
+    "7776",
+    "7779",
+    "7782",
+    "7785",
+    "7788",
+    "7791",
+    "7794",
+    "7797",
+    "7800",
+    "7803",
+    "7806",
+}
 
 
 # 打印变量
@@ -102,7 +201,7 @@ def print_variables():
         "BARK_EXTRA": BARK_EXTRA,
         "ANPUSH_TOKEN": ANPUSH_TOKEN,
         "ANPUSH_CHANNEL": ANPUSH_CHANNEL,
-        "PUSH_METHOD": PUSH_METHOD
+        "PUSH_METHOD": PUSH_METHOD,
     }
     for var_name, var_value in variables.items():
         logger.info(f"{var_name}: {var_value} - {type(var_value)}")
@@ -158,15 +257,9 @@ def send_message_bark():
 
 def send_message_anpush():
     url = "https://api.anpush.com/push/" + ANPUSH_TOKEN
-    payload = {
-        "title": "预约通知",
-        "content": MESSAGE,
-        "channel": ANPUSH_CHANNEL
-    }
+    payload = {"title": "预约通知", "content": MESSAGE, "channel": ANPUSH_CHANNEL}
 
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
+    headers = {"Content-Type": "application/x-www-form-urlencoded"}
 
     requests.post(url, headers=headers, data=payload)
     # logger.info(response.text)
@@ -180,7 +273,9 @@ async def send_message_telegram():
         await bot.send_message(chat_id=CHANNEL_ID, text=MESSAGE)
         logger.info("成功推送消息到 Telegram")
     except Exception as e:
-        logger.info(f"发送消息到 Telegram 失败, 可能是没有设置此通知方式，也可能是没有连接到 Telegram")
+        logger.info(
+            f"发送消息到 Telegram 失败, 可能是没有设置此通知方式，也可能是没有连接到 Telegram"
+        )
         return e
 
 
@@ -192,7 +287,10 @@ def get_auth_token():
             raise ValueError("未找到用户名或密码")
 
         # 检查 Token 是否过期
-        if TOKEN_TIMESTAMP is None or (datetime.datetime.now() - TOKEN_TIMESTAMP) > TOKEN_EXPIRY_DELTA:
+        if (
+            TOKEN_TIMESTAMP is None
+            or (datetime.datetime.now() - TOKEN_TIMESTAMP) > TOKEN_EXPIRY_DELTA
+        ):
             # Token 过期或尚未获取，重新获取
             name, token = get_bearer_token(USERNAME, PASSWORD)
             logger.info(f"成功获取授权码")
@@ -239,8 +337,8 @@ def check_book_seat():
 def check_reservation_status():
     global FLAG, MESSAGE
     # 状态信息检测
-    if isinstance(SEAT_RESULT, dict) and 'msg' in SEAT_RESULT:
-        status = SEAT_RESULT['msg']
+    if isinstance(SEAT_RESULT, dict) and "msg" in SEAT_RESULT:
+        status = SEAT_RESULT["msg"]
         logger.info("预约状态：" + str(status))
         if status is not None:
             if status == "当前用户在该时段已存在座位预约，不可重复预约":
@@ -311,16 +409,18 @@ def post_to_get_seat(select_id, segment):
         "lang": "zh",
         "X-Requested-With": "XMLHttpRequest",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                      "like Gecko)"
-                      "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+        "like Gecko)"
+        "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
         "Origin": "http://libyy.qfnu.edu.cn",
         "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
         "Accept-Encoding": "gzip, deflate",
         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-        "Authorization": AUTH_TOKEN
+        "Authorization": AUTH_TOKEN,
     }
     # 发送POST请求并获取响应
-    SEAT_RESULT = send_post_request_and_save_response(URL_GET_SEAT, post_data, request_headers)
+    SEAT_RESULT = send_post_request_and_save_response(
+        URL_GET_SEAT, post_data, request_headers
+    )
     check_reservation_status()
 
 
@@ -330,7 +430,7 @@ def random_get_seat(data):
     # 随机选择一个字典
     random_dict = random.choice(data)
     # 获取该字典中 'id' 键对应的值
-    select_id = random_dict['id']
+    select_id = random_dict["id"]
     # seat_no = random_dict['no']
     # logger.info(f"随机选择的座位为: {select_id} 真实位置: {seat_no}")
     return select_id
@@ -347,7 +447,7 @@ def select_seat(build_id, segment, nowday):
         # 优选逻辑
         if MODE == "1":
             data = get_seat_info(build_id, segment, nowday)
-            new_data = [d for d in data if d['id'] not in EXCLUDE_ID]
+            new_data = [d for d in data if d["id"] not in EXCLUDE_ID]
             # logger.info(new_data)
             # 检查返回的列表是否为空
             if not new_data:
@@ -393,10 +493,7 @@ def select_seat(build_id, segment, nowday):
 def cancel_seat(seat_id):
     global SEAT_RESULT
     try:
-        post_data = {
-            "id": seat_id,
-            "authorization": AUTH_TOKEN
-        }
+        post_data = {"id": seat_id, "authorization": AUTH_TOKEN}
         request_headers = {
             "Content-Type": "application/json",
             "Connection": "keep-alive",
@@ -404,15 +501,17 @@ def cancel_seat(seat_id):
             "lang": "zh",
             "X-Requested-With": "XMLHttpRequest",
             "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                          "like Gecko)"
-                          "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+            "like Gecko)"
+            "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
             "Origin": "http://libyy.qfnu.edu.cn",
             "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
             "Accept-Encoding": "gzip, deflate",
             "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-            "Authorization": AUTH_TOKEN
+            "Authorization": AUTH_TOKEN,
         }
-        SEAT_RESULT = send_post_request_and_save_response(URL_CANCEL_SEAT, post_data, request_headers)
+        SEAT_RESULT = send_post_request_and_save_response(
+            URL_CANCEL_SEAT, post_data, request_headers
+        )
     except KeyError:
         logger.info("数据解析错误")
 
@@ -430,11 +529,14 @@ def rebook_seat_or_checkout():
                 # current_time = datetime.datetime.now()
                 # logger.info(current_time)
                 for item in res["data"]["data"]:
-                    if item["statusName"] == "预约开始提醒" or item["statusName"] == "预约成功":
+                    if (
+                        item["statusName"] == "预约开始提醒"
+                        or item["statusName"] == "预约成功"
+                    ):
                         ids = item["id"]  # 获取 id
                         space = item["space"]  # 获取 seat_id
                         name_merge = item["nameMerge"]  # 获取名称（nameMerge）
-                        name_merge = name_merge.split('-', 1)[-1]
+                        name_merge = name_merge.split("-", 1)[-1]
                         build_id = get_build_id(name_merge)
                         segment = get_segment(build_id, NEW_DATE)
                         # logger.info(ids + space + segment)
@@ -457,10 +559,7 @@ def rebook_seat_or_checkout():
                         break  # 找到座位后退出循环
 
                 if seat_id is not None:  # 确保 seat_id 不为空
-                    post_data = {
-                        "id": seat_id,
-                        "authorization": AUTH_TOKEN
-                    }
+                    post_data = {"id": seat_id, "authorization": AUTH_TOKEN}
                     request_headers = {
                         "Content-Type": "application/json",
                         "Connection": "keep-alive",
@@ -468,15 +567,17 @@ def rebook_seat_or_checkout():
                         "lang": "zh",
                         "X-Requested-With": "XMLHttpRequest",
                         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, "
-                                      "like Gecko)"
-                                      "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
+                        "like Gecko)"
+                        "Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
                         "Origin": "http://libyy.qfnu.edu.cn",
                         "Referer": "http://libyy.qfnu.edu.cn/h5/index.html",
                         "Accept-Encoding": "gzip, deflate",
                         "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6,pl;q=0.5",
-                        "Authorization": AUTH_TOKEN
+                        "Authorization": AUTH_TOKEN,
                     }
-                    res = send_post_request_and_save_response(URL_CHECK_OUT, post_data, request_headers)
+                    res = send_post_request_and_save_response(
+                        URL_CHECK_OUT, post_data, request_headers
+                    )
                     if "msg" in res:
                         status = res["msg"]
                         logger.info("签退状态：" + status)
@@ -533,9 +634,10 @@ def get_info_and_select_seat():
         # logger.info(CLASSROOMS_NAME)
         NEW_DATE = get_date(DATE)
         get_auth_token()
-        build_id = get_build_id(CLASSROOMS_NAME)
-        segment = get_segment(build_id, NEW_DATE)
-        select_seat(build_id, segment, NEW_DATE)
+        for i in CLASSROOMS_NAME:
+            build_id = get_build_id(i)
+            segment = get_segment(build_id, NEW_DATE)
+            select_seat(build_id, segment, NEW_DATE)
 
     except KeyboardInterrupt:
         logger.info("主动退出程序，程序将退出。")
