@@ -61,7 +61,7 @@ def read_config_from_yaml():
         config = yaml.safe_load(yaml_file)
         CHANNEL_ID = config.get("CHANNEL_ID", "")
         TELEGRAM_BOT_TOKEN = config.get("TELEGRAM_BOT_TOKEN", "")
-        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", [])
+        CLASSROOMS_NAME = config.get("CLASSROOMS_NAME", []) # 修改此处，将 CLASSROOMS_NAME 读取为列表
         MODE = config.get("MODE", "")
         SEAT_ID = config.get("SEAT_ID", [])  # 修改此处，将 SEAT_ID 读取为列表
         DATE = config.get("DATE", "")
